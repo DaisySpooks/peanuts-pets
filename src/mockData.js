@@ -3,7 +3,7 @@ export const pet = {
   species: 'Axolotl',
 }
 
-export const stats = [
+export const defaultStats = [
   { key: 'hunger', label: 'Hunger', value: 78 },
   { key: 'cleanliness', label: 'Cleanliness', value: 86 },
   { key: 'happiness', label: 'Happiness', value: 92 },

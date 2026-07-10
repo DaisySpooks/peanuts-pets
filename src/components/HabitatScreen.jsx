@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import TankStage from './TankStage.jsx'
 import StatBar from './StatBar.jsx'
 import ActionCard from './ActionCard.jsx'
+import { logout } from '../auth/discordAuth.js'
 
 // Pellet sinks toward the mouth over this long (matches the pellet-drop
 // animation duration in tailwind.config.js); mouth-eating only kicks in
@@ -49,13 +50,15 @@ function getPetStatusText({ isFeeding, isCleaning, isPlaying, stats }) {
   return 'Just floating.'
 }
 
-export default function HabitatScreen({ pet, stats, actions }) {
+export default function HabitatScreen({ pet, petType, stats, actions, onActionPersist }) {
   const statsForMood = Object.fromEntries(stats.map((s) => [s.key, s.value]))
   const [isFeeding, setIsFeeding] = useState(false)
   const [isEating, setIsEating] = useState(false)
   const [feedTrigger, setFeedTrigger] = useState(0)
   const [isCleaning, setIsCleaning] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [pendingAction, setPendingAction] = useState(null)
+  const [actionError, setActionError] = useState(null)
   const pelletTimeoutRef = useRef(null)
   const eatingStartTimeoutRef = useRef(null)
   const eatingEndTimeoutRef = useRef(null)
@@ -73,6 +76,8 @@ export default function HabitatScreen({ pet, stats, actions }) {
   }, [])
 
   const handleAction = (actionKey) => {
+    if (pendingAction) return
+
     if (actionKey === 'feed') {
       clearTimeout(pelletTimeoutRef.current)
       clearTimeout(eatingStartTimeoutRef.current)
@@ -85,21 +90,27 @@ export default function HabitatScreen({ pet, stats, actions }) {
       pelletTimeoutRef.current = setTimeout(() => setIsFeeding(false), PELLET_DURATION_MS)
       eatingStartTimeoutRef.current = setTimeout(() => setIsEating(true), EATING_START_MS)
       eatingEndTimeoutRef.current = setTimeout(() => setIsEating(false), EATING_END_MS)
-      return
-    }
-
-    if (actionKey === 'clean') {
+    } else if (actionKey === 'clean') {
       clearTimeout(cleaningTimeoutRef.current)
       setIsCleaning(true)
       cleaningTimeoutRef.current = setTimeout(() => setIsCleaning(false), CLEANING_DURATION_MS)
-      return
-    }
-
-    if (actionKey === 'play') {
+    } else if (actionKey === 'play') {
       clearTimeout(playingTimeoutRef.current)
       setIsPlaying(true)
       playingTimeoutRef.current = setTimeout(() => setIsPlaying(false), PLAYING_DURATION_MS)
     }
+
+    setPendingAction(actionKey)
+    Promise.resolve(onActionPersist?.(actionKey))
+      .then(() => {
+        setActionError(null)
+      })
+      .catch(() => {
+        setActionError('Could not save that action. Your current stats are unchanged.')
+      })
+      .finally(() => {
+        setPendingAction((current) => (current === actionKey ? null : current))
+      })
   }
 
   return (
@@ -111,7 +122,13 @@ export default function HabitatScreen({ pet, stats, actions }) {
             <h1 className="text-xl font-semibold text-cream md:text-2xl">{pet.name}</h1>
             <p className="text-sm text-cream/50">{pet.species}</p>
           </div>
-          <div className="h-10 w-10 rounded-full border border-gold/40 bg-[#171513] md:h-12 md:w-12" />
+          <button
+            type="button"
+            onClick={logout}
+            aria-label="Log out"
+            title="Log out"
+            className="h-10 w-10 rounded-full border border-gold/40 bg-[#171513] transition hover:border-gold/70 hover:bg-[#201c18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-ink md:h-12 md:w-12"
+          />
         </header>
 
         <main
@@ -124,6 +141,8 @@ export default function HabitatScreen({ pet, stats, actions }) {
         >
           <div className="flex-none md:min-h-0" style={{ gridArea: 'tank' }}>
             <TankStage
+              species={petType}
+              name={pet.name}
               mood="happy"
               stats={statsForMood}
               isEating={isEating}
@@ -142,7 +161,17 @@ export default function HabitatScreen({ pet, stats, actions }) {
           </div>
 
           <div className="flex-none" style={{ gridArea: 'actions' }}>
-            <ActionCard actions={actions} onAction={handleAction} activeKey={activeActionKey} />
+            <ActionCard
+              actions={actions}
+              onAction={handleAction}
+              activeKey={activeActionKey}
+              pendingKey={pendingAction}
+            />
+            {actionError ? (
+              <p className="mt-2 px-1 text-xs text-cream/50" role="status">
+                {actionError}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex-none" style={{ gridArea: 'stats' }}>

@@ -1,6 +1,6 @@
 import TankDecor from './TankDecor.jsx'
 import TankEffects from './TankEffects.jsx'
-import PetRenderer from './PetRenderer.jsx'
+import PetRig from './PetRig.jsx'
 
 // Maps the cleanliness stat to how visible the dirty-water overlay is.
 function getDirtyWaterOpacity(cleanliness) {
@@ -24,7 +24,7 @@ const CLEAN_SPARKLES = [
 
 // The tank "frame": glass, water, reflections, layout container.
 // Composes decor/effects/pet but never reaches into PetRenderer's internals.
-export default function TankStage({ mood, stats, isEating, isFeeding, feedTrigger, isCleaning, isPlaying }) {
+export default function TankStage({ species, name, mood, stats, isEating, isFeeding, feedTrigger, isCleaning, isPlaying }) {
   const dirtyWaterOpacity = isCleaning ? 0 : getDirtyWaterOpacity(stats?.cleanliness)
 
   return (
@@ -53,7 +53,7 @@ export default function TankStage({ mood, stats, isEating, isFeeding, feedTrigge
         </div>
       </div>
       <TankDecor />
-      <PetRenderer mood={mood} stats={stats} isEating={isEating} isFeeding={isFeeding} feedTrigger={feedTrigger} isPlaying={isPlaying} />
+      <PetRig species={species} name={name} mood={mood} stats={stats} isEating={isEating} isFeeding={isFeeding} feedTrigger={feedTrigger} isPlaying={isPlaying} />
       {/* dirty-water overlay: same full-canvas object-contain box as water.png/tank.png
           so it stays pixel-aligned with them on every breakpoint. Sits above the pet
           and decor so grime visibly affects the whole tank; opacity is driven by the
