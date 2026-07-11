@@ -1,0 +1,7 @@
+# Cloudflare Pages proxy rules — status 200 makes these transparent proxies
+# (not browser redirects), so the frontend's existing fetch('/auth/...') and
+# fetch('/api/...') calls keep working unchanged and stay same-origin from
+# the browser's point of view. The Railway backend URL below must match the
+# deployed backend exactly.
+/auth/*  https://peanuts-pets-production.up.railway.app/auth/:splat  200
+/api/*   https://peanuts-pets-production.up.railway.app/api/:splat   200
