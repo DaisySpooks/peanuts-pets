@@ -60,6 +60,11 @@ const HAPPY_HAPPINESS_THRESHOLD = 85
 // shortly after, instead of snapping shut exactly when the shared timer
 // flips — local to this rig only.
 const EATING_HOLD_EXTRA_MS = 250
+// Shared feed timing starts `isEating` at ~1296ms into the 1800ms feed.
+// Betta's pellet path reaches its mouth at the end of that path, so the
+// visible shut chomp should start ~504ms after `isEating` turns on.
+const CHOMP_TRIGGER_DELAY_MS = 504
+const CHOMP_DURATION_MS = 120
 
 function useExtendedEating(isEating) {
   const [held, setHeld] = useState(isEating)
@@ -128,9 +133,37 @@ export default function BettaRig({ mood = 'happy', stats = {}, isEating = false,
   const bob = mood === 'happy' ? 'animate-pet-bob' : ''
   const isEatingHeld = useExtendedEating(isEating)
   const face = getBettaFaceState(mood, stats, isEatingHeld, isPlaying)
+  const [isChomping, setIsChomping] = useState(false)
+  const chompStartTimeoutRef = useRef(null)
+  const chompEndTimeoutRef = useRef(null)
   const isBlinking = useIdleBlink(face.canBlink)
-  const eyes = isBlinking ? 'eyes-closed' : face.eyes
-  const layers = [...BASE_LAYERS, eyes, face.mouth]
+
+  useEffect(() => {
+    if (!isEating) {
+      clearTimeout(chompStartTimeoutRef.current)
+      clearTimeout(chompEndTimeoutRef.current)
+      setIsChomping(false)
+      return undefined
+    }
+
+    clearTimeout(chompStartTimeoutRef.current)
+    clearTimeout(chompEndTimeoutRef.current)
+    setIsChomping(false)
+
+    chompStartTimeoutRef.current = setTimeout(() => {
+      setIsChomping(true)
+      chompEndTimeoutRef.current = setTimeout(() => setIsChomping(false), CHOMP_DURATION_MS)
+    }, CHOMP_TRIGGER_DELAY_MS)
+
+    return () => {
+      clearTimeout(chompStartTimeoutRef.current)
+      clearTimeout(chompEndTimeoutRef.current)
+    }
+  }, [isEating])
+
+  const eyes = isChomping ? 'eyes-closed' : isBlinking ? 'eyes-closed' : face.eyes
+  const mouth = isChomping ? 'mouth-idle' : face.mouth
+  const layers = [...BASE_LAYERS, eyes, mouth]
 
   // Feed: lean gently toward the food, then ease back to neutral. Play: a
   // quick, contained happy wiggle. Both live on this inner wrapper (not the
@@ -184,9 +217,6 @@ export default function BettaRig({ mood = 'happy', stats = {}, isEating = false,
           </span>
         ))}
       </div>
-      {typeof stats.happiness === 'number' && stats.happiness >= 85 && (
-        <span aria-hidden="true" className="absolute -top-2 right-2 text-xs text-cream/70">✦</span>
-      )}
     </div>
   )
 }

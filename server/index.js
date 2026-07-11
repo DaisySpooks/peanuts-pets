@@ -9,11 +9,17 @@ import {
   fetchGuildMember,
 } from './discord.js'
 import { createSessionCookieValue, verifySessionCookieValue } from './session.js'
-import { decideAccess } from './access.js'
+import { decideAccess, decideAdminAccess } from './access.js'
 import {
   applyPetCareAction,
   createPetIfNotExists,
+  deletePetByDiscordUserId,
   getPetByDiscordUserId,
+  getPetSummary,
+  listPets,
+  resetPetCooldownsForAdmin,
+  toDisplayPet,
+  updatePetForAdmin,
   validatePetAction,
   validatePetName,
   validatePetType,
@@ -73,8 +79,19 @@ const baseCookieOptions = {
 }
 
 const app = express()
+// Railway (and similar PaaS hosts) terminate TLS and proxy over HTTP
+// internally — without this, req.ip resolves to the proxy's own address for
+// every request, which would collapse accessRateLimiter's per-IP buckets
+// below into one shared bucket.
+app.set('trust proxy', 1)
 app.use(cookieParser())
 app.use(express.json())
+
+// Dependency-free health check for Railway's health-check probe: no cookie
+// parsing, no Discord/Supabase calls, just confirms the process is up.
+app.get('/healthz', (req, res) => {
+  res.status(200).json({ status: 'ok' })
+})
 
 // Minimal in-memory fixed-window rate limiter to keep the bot-token-backed
 // access check from being hammered. Single-process only — fine for this
@@ -217,7 +234,17 @@ app.get('/auth/access', accessRateLimiter, async (req, res) => {
       teamRoleId: DISCORD_TEAM_ROLE_ID,
     })
 
-    res.json({ authenticated: true, accessGranted: granted, reason })
+    const adminAccess = decideAdminAccess(member.roles, {
+      adminRoleId: DISCORD_ADMIN_ROLE_ID,
+      teamRoleId: DISCORD_TEAM_ROLE_ID,
+    })
+
+    res.json({
+      authenticated: true,
+      accessGranted: granted,
+      adminAccessGranted: adminAccess.granted,
+      reason,
+    })
   } catch (error) {
     // Deliberately generic: never surface the bot token, member payload, or
     // raw Discord error details to the client or logs.
@@ -274,6 +301,44 @@ async function requireAccess(req, res, next) {
   next()
 }
 
+async function requireAdminAccess(req, res, next) {
+  const session = verifySessionCookieValue(req.cookies[SESSION_COOKIE_NAME], SESSION_SECRET)
+  if (!session) {
+    res.status(401).json({ error: 'not_authenticated' })
+    return
+  }
+
+  try {
+    const member = await fetchGuildMember({
+      botToken: DISCORD_BOT_TOKEN,
+      guildId: DISCORD_GUILD_ID,
+      userId: session.id,
+    })
+
+    if (!member) {
+      res.status(403).json({ error: 'access_denied', reason: 'not_in_server' })
+      return
+    }
+
+    const { granted, reason } = decideAdminAccess(member.roles, {
+      adminRoleId: DISCORD_ADMIN_ROLE_ID,
+      teamRoleId: DISCORD_TEAM_ROLE_ID,
+    })
+
+    if (!granted) {
+      res.status(403).json({ error: 'admin_access_denied', reason })
+      return
+    }
+  } catch (error) {
+    console.error('Discord admin access check failed:', error.message)
+    res.status(503).json({ error: 'discord_unavailable' })
+    return
+  }
+
+  req.discordUserId = session.id
+  next()
+}
+
 app.get('/api/pets/me', accessRateLimiter, requireAccess, async (req, res) => {
   try {
     const pet = await getPetByDiscordUserId({
@@ -281,7 +346,7 @@ app.get('/api/pets/me', accessRateLimiter, requireAccess, async (req, res) => {
       serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
       discordUserId: req.discordUserId,
     })
-    res.json({ pet })
+    res.json({ pet: toDisplayPet(pet) })
   } catch (error) {
     console.error('Pet lookup failed:', error.message)
     res.status(503).json({ error: 'pet_lookup_failed' })
@@ -309,7 +374,7 @@ app.post('/api/pets/create', accessRateLimiter, requireAccess, async (req, res) 
       petType,
       petName,
     })
-    res.json({ pet })
+    res.json({ pet: toDisplayPet(pet) })
   } catch (error) {
     console.error('Pet creation failed:', error.message)
     res.status(503).json({ error: 'pet_create_failed' })
@@ -337,10 +402,124 @@ app.post('/api/pets/:action(feed|clean|play)', accessRateLimiter, requireAccess,
       return
     }
 
-    res.json({ pet })
+    res.json({ pet: toDisplayPet(pet) })
   } catch (error) {
+    if (error.code === 'pet_action_on_cooldown') {
+      res.status(409).json({ error: 'pet_action_on_cooldown' })
+      return
+    }
     console.error(`Pet ${action} failed:`, error.message)
     res.status(503).json({ error: 'pet_action_failed' })
+  }
+})
+
+app.get('/api/admin/summary', accessRateLimiter, requireAdminAccess, async (req, res) => {
+  try {
+    const summary = await getPetSummary({
+      supabaseUrl: SUPABASE_URL,
+      serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
+    })
+    res.json({ ...summary, recentPets: summary.recentPets.map(toDisplayPet) })
+  } catch (error) {
+    console.error('Admin pet summary failed:', error.message)
+    res.status(503).json({ error: 'admin_summary_failed' })
+  }
+})
+
+app.get('/api/admin/pets', accessRateLimiter, requireAdminAccess, async (req, res) => {
+  const discordUserId = typeof req.query?.discordUserId === 'string' ? req.query.discordUserId.trim() : undefined
+  const requestedLimit = Number.parseInt(req.query?.limit, 10)
+  const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+    ? Math.min(requestedLimit, 100)
+    : 25
+
+  try {
+    const pets = await listPets({
+      supabaseUrl: SUPABASE_URL,
+      serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
+      discordUserId: discordUserId || undefined,
+      limit,
+    })
+    res.json({ pets: pets.map(toDisplayPet) })
+  } catch (error) {
+    console.error('Admin pet list failed:', error.message)
+    res.status(503).json({ error: 'admin_pets_failed' })
+  }
+})
+
+app.post('/api/admin/my-pet/update', accessRateLimiter, requireAdminAccess, async (req, res) => {
+  try {
+    const pet = await updatePetForAdmin({
+      supabaseUrl: SUPABASE_URL,
+      serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
+      discordUserId: req.discordUserId,
+      petType: req.body?.petType,
+      petName: req.body?.name,
+      statPreset: req.body?.statPreset,
+      clearActionTimestamps: req.body?.clearActionTimestamps === true,
+      simulateElapsedHours: req.body?.simulateElapsedHours !== undefined
+        ? Number(req.body.simulateElapsedHours)
+        : undefined,
+    })
+
+    if (!pet) {
+      res.status(404).json({ error: 'pet_not_found' })
+      return
+    }
+
+    res.json({ pet: toDisplayPet(pet) })
+  } catch (error) {
+    if (
+      error.message === 'invalid_pet_type' ||
+      error.message === 'invalid_pet_name' ||
+      error.message === 'invalid_stat_preset' ||
+      error.message === 'invalid_simulate_elapsed_hours'
+    ) {
+      res.status(400).json({ error: error.message })
+      return
+    }
+    console.error('Admin pet update failed:', error.message)
+    res.status(503).json({ error: 'admin_pet_update_failed' })
+  }
+})
+
+app.post('/api/admin/my-pet/reset-cooldowns', accessRateLimiter, requireAdminAccess, async (req, res) => {
+  try {
+    const pet = await resetPetCooldownsForAdmin({
+      supabaseUrl: SUPABASE_URL,
+      serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
+      discordUserId: req.discordUserId,
+    })
+
+    if (!pet) {
+      res.status(404).json({ error: 'pet_not_found' })
+      return
+    }
+
+    res.json({ pet: toDisplayPet(pet) })
+  } catch (error) {
+    console.error('Admin pet cooldown reset failed:', error.message)
+    res.status(503).json({ error: 'admin_pet_reset_cooldowns_failed' })
+  }
+})
+
+app.delete('/api/admin/my-pet', accessRateLimiter, requireAdminAccess, async (req, res) => {
+  try {
+    const deletedPet = await deletePetByDiscordUserId({
+      supabaseUrl: SUPABASE_URL,
+      serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
+      discordUserId: req.discordUserId,
+    })
+
+    if (!deletedPet) {
+      res.status(404).json({ error: 'pet_not_found' })
+      return
+    }
+
+    res.json({ pet: toDisplayPet(deletedPet) })
+  } catch (error) {
+    console.error('Admin pet delete failed:', error.message)
+    res.status(503).json({ error: 'admin_pet_delete_failed' })
   }
 })
 

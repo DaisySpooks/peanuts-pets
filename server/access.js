@@ -16,3 +16,16 @@ export function decideAccess(memberRoleIds, { ppHolderRoleId, adminRoleId, teamR
 
   return { granted: false, reason: 'missing_role' }
 }
+
+export function decideAdminAccess(memberRoleIds, { adminRoleId, teamRoleId }) {
+  const roleIds = Array.isArray(memberRoleIds) ? memberRoleIds : []
+
+  if (adminRoleId && roleIds.includes(adminRoleId)) {
+    return { granted: true, reason: 'granted' }
+  }
+  if (teamRoleId && roleIds.includes(teamRoleId)) {
+    return { granted: true, reason: 'granted' }
+  }
+
+  return { granted: false, reason: 'missing_role' }
+}

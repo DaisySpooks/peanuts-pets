@@ -1,6 +1,7 @@
 import TankDecor from './TankDecor.jsx'
 import TankEffects from './TankEffects.jsx'
 import PetRig from './PetRig.jsx'
+import PetShadow from './PetShadow.jsx'
 
 // Maps the cleanliness stat to how visible the dirty-water overlay is.
 function getDirtyWaterOpacity(cleanliness) {
@@ -28,7 +29,7 @@ export default function TankStage({ species, name, mood, stats, isEating, isFeed
   const dirtyWaterOpacity = isCleaning ? 0 : getDirtyWaterOpacity(stats?.cleanliness)
 
   return (
-    <div className="relative mx-auto aspect-[3/2] max-h-[34vh] w-full max-w-xl overflow-hidden rounded-3xl border-4 border-gold/40 bg-gradient-to-b from-[#3E7873] via-[#2E5E5A] to-[#1F4440] shadow-[0_0_0_1px_rgba(201,164,76,0.15),0_20px_50px_-12px_rgba(0,0,0,0.6)] sm:aspect-[16/10] md:aspect-[16/7] md:h-[clamp(320px,calc(100vh-390px),640px)] md:w-auto md:max-h-none md:max-w-full">
+    <div className="relative mx-auto aspect-[3/2] max-h-[34vh] w-full max-w-xl overflow-hidden rounded-3xl border-4 border-gold/40 bg-gradient-to-b from-[#3E7873] via-[#2E5E5A] to-[#1F4440] shadow-[0_0_0_1px_rgba(201,164,76,0.15),0_20px_50px_-12px_rgba(0,0,0,0.6)] sm:aspect-[16/10] md:aspect-[16/7] md:h-full md:max-h-[640px] md:w-auto md:max-w-full">
       <img
         src="/assets/peanuts-pets-tank/water.png"
         alt=""
@@ -53,6 +54,7 @@ export default function TankStage({ species, name, mood, stats, isEating, isFeed
         </div>
       </div>
       <TankDecor />
+      <PetShadow mood={mood} isFeeding={isFeeding} isPlaying={isPlaying} />
       <PetRig species={species} name={name} mood={mood} stats={stats} isEating={isEating} isFeeding={isFeeding} feedTrigger={feedTrigger} isPlaying={isPlaying} />
       {/* dirty-water overlay: same full-canvas object-contain box as water.png/tank.png
           so it stays pixel-aligned with them on every breakpoint. Sits above the pet
@@ -86,6 +88,19 @@ export default function TankStage({ species, name, mood, stats, isEating, isFeed
           </div>
         </div>
       )}
+      {/* glass polish: diagonal sheen, edge highlights, corner depth tint —
+          all static, low-opacity, purely cosmetic. Sits above the pet/decor
+          like a pane of glass but never obscures them. */}
+      <div className="pointer-events-none absolute inset-0 rounded-3xl overflow-hidden">
+        {/* soft diagonal reflection, upper-left */}
+        <div className="absolute -left-1/4 -top-1/3 h-2/3 w-1/2 rotate-[-18deg] bg-gradient-to-b from-cream/[0.10] via-cream/[0.03] to-transparent" />
+        {/* faint vertical highlights along inside left/right edges */}
+        <div className="absolute inset-y-0 left-0 w-[6%] bg-gradient-to-r from-cream/[0.08] to-transparent" />
+        <div className="absolute inset-y-0 right-0 w-[6%] bg-gradient-to-l from-cream/[0.06] to-transparent" />
+        {/* subtle darker tint in the lower corners for depth */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(0,0,0,0.16),transparent_35%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(0,0,0,0.16),transparent_35%)]" />
+      </div>
       {/* glass rim highlight */}
       <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-cream/10" />
     </div>

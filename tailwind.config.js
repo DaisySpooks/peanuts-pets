@@ -75,6 +75,19 @@ export default {
           '30%': { opacity: '1', transform: 'scale(1) translateY(-4px)' },
           '100%': { opacity: '0', transform: 'scale(0.8) translateY(-14px)' },
         },
+        'pet-shadow-pulse': {
+          '0%, 100%': { transform: 'scale(1)', opacity: '0.46' },
+          '50%': { transform: 'scale(0.92)', opacity: '0.38' },
+        },
+        'bar-sheen': {
+          '0%, 92%, 100%': { transform: 'translateX(-120%)', opacity: '0' },
+          '95%': { opacity: '0.5' },
+          '98%': { transform: 'translateX(220%)', opacity: '0' },
+        },
+        'card-noise-drift': {
+          '0%, 100%': { transform: 'translate(0, 0)' },
+          '50%': { transform: 'translate(-1.5%, 1%)' },
+        },
       },
       animation: {
         'bubble-rise': 'bubble-rise 6s linear infinite backwards',
@@ -92,6 +105,9 @@ export default {
         'limb-float-front-right': 'limb-float-a 4.5s ease-in-out infinite',
         'clean-sparkle': 'clean-sparkle 900ms ease-out',
         'play-heart': 'play-heart 1100ms ease-out',
+        'pet-shadow-pulse': 'pet-shadow-pulse 4s ease-in-out infinite',
+        'bar-sheen': 'bar-sheen 9s ease-in-out infinite',
+        'card-noise-drift': 'card-noise-drift 14s ease-in-out infinite',
       },
     },
   },

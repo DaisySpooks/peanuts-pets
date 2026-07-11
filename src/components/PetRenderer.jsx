@@ -43,6 +43,17 @@ const BLINK_MIN_INTERVAL_MS = 3000
 const BLINK_MAX_INTERVAL_MS = 6000
 const BLINK_MIN_DURATION_MS = 120
 const BLINK_MAX_DURATION_MS = 180
+// Feed/eating timing for all pets lives in HabitatScreen.jsx
+// (PELLET_DURATION_MS / EATING_START_MS / EATING_END_MS) and is unchanged.
+// Shared feed timing starts `isEating` at ~1296ms into the 1800ms feed, and
+// axolotl's own pellet-drop keyframe (the reference one in
+// tailwind.config.js) reaches the mouth at 1800ms — so the visible shut
+// chomp should begin ~504ms after `isEating` turns on (1296ms + 504ms =
+// 1800ms total), i.e. at the actual rendered food-contact moment, not the
+// instant `isEating` first turns on. Same derivation already used by
+// BettaRig/TurtleRig, kept local to this rig only.
+const CHOMP_TRIGGER_DELAY_MS = 504
+const CHOMP_DURATION_MS = 130
 
 function randomBetween(min, max) {
   return min + Math.random() * (max - min)
@@ -89,9 +100,48 @@ const PLAY_HEARTS = [
 export default function PetRenderer({ mood = 'happy', stats = {}, isEating = false, isFeeding = false, feedTrigger = 0, isPlaying = false }) {
   const bob = mood === 'happy' ? 'animate-pet-bob' : ''
   const face = getAxolotlFaceState(mood, stats, isEating, isPlaying)
+  const [isChomping, setIsChomping] = useState(false)
+  const chompStartTimeoutRef = useRef(null)
+  const chompEndTimeoutRef = useRef(null)
   const isBlinking = useIdleBlink(face.canBlink)
-  const eyes = isBlinking ? 'eyes-closed' : face.eyes
-  const layers = [...BASE_LAYERS, eyes, face.mouth]
+
+  useEffect(() => {
+    if (!isEating) {
+      clearTimeout(chompStartTimeoutRef.current)
+      clearTimeout(chompEndTimeoutRef.current)
+      setIsChomping(false)
+      return undefined
+    }
+
+    clearTimeout(chompStartTimeoutRef.current)
+    clearTimeout(chompEndTimeoutRef.current)
+    setIsChomping(false)
+
+    chompStartTimeoutRef.current = setTimeout(() => {
+      setIsChomping(true)
+      chompEndTimeoutRef.current = setTimeout(() => setIsChomping(false), CHOMP_DURATION_MS)
+    }, CHOMP_TRIGGER_DELAY_MS)
+
+    return () => {
+      clearTimeout(chompStartTimeoutRef.current)
+      clearTimeout(chompEndTimeoutRef.current)
+    }
+  }, [isEating])
+
+  const eyes = isChomping ? 'eyes-closed' : isBlinking ? 'eyes-closed' : face.eyes
+  const mouth = isChomping ? 'mouth-idle' : face.mouth
+  const layers = [...BASE_LAYERS, eyes, mouth]
+
+  // Feed only: a soft, curious lean toward the falling pellet (which drops
+  // in from the upper-left of this box per the shared pellet-drop keyframe),
+  // easing back to neutral once isFeeding ends. Lives on this inner wrapper
+  // (not the outer pet-bob element, not the per-layer limb/gill/tail
+  // animations) so it never fights any of them — same approach already used
+  // by BettaRig for its own feed lean. No transform outside of feeding, so
+  // idle/play/clean are untouched.
+  const feedLeanStyle = isFeeding
+    ? { transform: 'translate(-2%, -2%) rotate(-2deg)', transition: 'transform 500ms ease-out' }
+    : { transform: 'translate(0, 0) rotate(0deg)', transition: 'transform 500ms ease-out' }
 
   return (
     <div
@@ -99,7 +149,7 @@ export default function PetRenderer({ mood = 'happy', stats = {}, isEating = fal
       role="img"
       aria-label={`Mochi the axolotl, mood: ${mood}`}
     >
-      <div className="relative aspect-[503/410] w-full drop-shadow-lg">
+      <div className="relative aspect-[503/410] w-full drop-shadow-lg" style={feedLeanStyle}>
         {layers.map((layer, index) => {
           const anim = layer === 'tail'
             ? { className: ' animate-tail-sway', style: { transformOrigin: '61% 54%' } }
@@ -153,9 +203,6 @@ export default function PetRenderer({ mood = 'happy', stats = {}, isEating = fal
           </span>
         ))}
       </div>
-      {typeof stats.happiness === 'number' && stats.happiness >= 85 && (
-        <span aria-hidden="true" className="absolute -top-2 right-2 text-xs text-cream/70">✦</span>
-      )}
     </div>
   )
 }

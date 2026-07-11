@@ -57,6 +57,12 @@ const HAPPY_HAPPINESS_THRESHOLD = 85
 // hold but with an added onset delay tuned to turtle's own pellet timing.
 const EATING_ONSET_DELAY_MS = 320
 const EATING_HOLD_EXTRA_MS = 250
+// Shared feed timing starts `isEating` at ~1296ms into the 1800ms feed.
+// Turtle's pellet path reaches its mouth endpoint at the end of that path,
+// so the visible "shut" chomp should begin ~504ms after `isEating` turns on
+// (1296ms + 504ms = 1800ms total), not when face-eating first appears.
+const CHOMP_TRIGGER_DELAY_MS = 504
+const CHOMP_DURATION_MS = 165
 
 function useEatingWindow(isEating) {
   const [held, setHeld] = useState(false)
@@ -129,13 +135,40 @@ export default function TurtleRig({ mood = 'happy', stats = {}, isEating = false
   const bob = mood === 'happy' ? 'animate-pet-bob' : ''
   const isEatingHeld = useEatingWindow(isEating)
   const face = getTurtleFace(mood, stats, isEatingHeld, isPlaying)
+  const [isChomping, setIsChomping] = useState(false)
+  const chompStartTimeoutRef = useRef(null)
+  const chompEndTimeoutRef = useRef(null)
+
+  useEffect(() => {
+    if (!isEating) {
+      clearTimeout(chompStartTimeoutRef.current)
+      clearTimeout(chompEndTimeoutRef.current)
+      setIsChomping(false)
+      return undefined
+    }
+
+    clearTimeout(chompStartTimeoutRef.current)
+    clearTimeout(chompEndTimeoutRef.current)
+    setIsChomping(false)
+
+    chompStartTimeoutRef.current = setTimeout(() => {
+      setIsChomping(true)
+      chompEndTimeoutRef.current = setTimeout(() => setIsChomping(false), CHOMP_DURATION_MS)
+    }, CHOMP_TRIGGER_DELAY_MS)
+
+    return () => {
+      clearTimeout(chompStartTimeoutRef.current)
+      clearTimeout(chompEndTimeoutRef.current)
+    }
+  }, [isEating])
+
   // Gated on the whole feed sequence (isFeeding), not just the narrower
   // isEatingHeld window — isEatingHeld now turns on with a delay (see
   // useEatingWindow), which would otherwise leave a gap early in feeding
   // where blink could still fire and interfere.
   const canBlink = !isFeeding && !isPlaying
   const isBlinking = useIdleBlink(canBlink)
-  const displayFace = isBlinking ? 'face-sleepy' : face
+  const displayFace = isChomping ? 'face-sleepy' : isBlinking ? 'face-sleepy' : face
   const layers = [...BASE_LAYERS, displayFace]
 
   // Feed: lean gently toward the food, then ease back to neutral. Play: a
@@ -190,9 +223,6 @@ export default function TurtleRig({ mood = 'happy', stats = {}, isEating = false
           </span>
         ))}
       </div>
-      {typeof stats.happiness === 'number' && stats.happiness >= 85 && (
-        <span aria-hidden="true" className="absolute -top-2 right-2 text-xs text-cream/70">✦</span>
-      )}
     </div>
   )
 }
