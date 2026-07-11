@@ -41,7 +41,68 @@ const LOCAL_KEYFRAMES = `
   0%, 52%, 100% { filter: brightness(1); }
   68%, 78% { filter: brightness(var(--catch-brightness, 1.12)); }
 }
+/* Suspended-particle vertical drift + sway. Runs on its own long, slow,
+   linear cycle (each particle's own animation-duration/-delay) so the rise
+   is imperceptibly gradual; the gentle side-to-side sway is layered on top
+   via a handful of transform-only stops so it doesn't distort the timing of
+   the bottom->top climb. Looping back to 0% at the bottom is the "recycle" —
+   kept invisible by construction since particle-fade (below) is always at
+   opacity 0 at both ends of its own cycle. */
+@keyframes particle-rise {
+  0% { bottom: -3%; transform: translateX(0); }
+  20% { transform: translateX(var(--particle-sway, 2px)); }
+  50% { transform: translateX(0); }
+  80% { transform: translateX(calc(var(--particle-sway, 2px) * -1)); }
+  100% { bottom: 103%; transform: translateX(0); }
+}
+/* Independent, shorter (8-15s) breathing cycle layered on top of the rise
+   above — deliberately not phase-locked to it, so particles brighten and
+   dim on their own unrelated rhythm instead of all pulsing in unison. */
+@keyframes particle-fade {
+  0%, 100% { opacity: 0; }
+  50% { opacity: var(--particle-opacity, 0.08); }
+}
 `
+
+// Suspended particles: tiny, near-weightless motes of dust/plankton
+// drifting in the water — distinct from the bubble system above (bubbles
+// are buoyant and rise briskly with a visible wobble; these barely move,
+// are far fainter, and are meant to read as ambient texture rather than a
+// noticeable effect). Built once at module load with randomized-but-stable
+// per-particle properties so re-renders never reshuffle their motion.
+const SUSPENDED_PARTICLE_COUNT = 20
+
+// A random-ish blob radius (à la the bubbles' own irregular border-radius
+// trick below) so each particle reads as an organic speck of dust/plankton
+// instead of a perfect, uniform circle.
+function randomBlobRadius() {
+  const corner = () => Math.round(42 + Math.random() * 16) // 42-58%
+  return `${corner()}% ${corner()}% ${corner()}% ${corner()}% / ${corner()}% ${corner()}% ${corner()}% ${corner()}%`
+}
+
+function buildSuspendedParticles(count) {
+  const particles = []
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      key: i,
+      left: `${(2 + Math.random() * 96).toFixed(1)}%`,
+      width: +(1 + Math.random() * 2).toFixed(2), // 1-3px
+      height: +(1 + Math.random() * 2).toFixed(2), // sized independently of width so it's not a perfect circle
+      radius: randomBlobRadius(),
+      gradCx: Math.round(42 + Math.random() * 16), // off-center soft core, 42-58%
+      gradCy: Math.round(42 + Math.random() * 16),
+      swayPx: +(1 + Math.random() * 2).toFixed(2), // 1-3px horizontal sway
+      opacityPeak: +(0.03 + Math.random() * 0.05).toFixed(3), // 3-8%, dimmer than before
+      riseDuration: +(30 + Math.random() * 25).toFixed(1), // 30-55s: very slow
+      riseDelay: +(-Math.random() * 55).toFixed(1), // negative = staggered mid-cycle start
+      fadeDuration: +(8 + Math.random() * 7).toFixed(1), // 8-15s
+      fadeDelay: +(-Math.random() * 15).toFixed(1),
+    })
+  }
+  return particles
+}
+
+const SUSPENDED_PARTICLES = buildSuspendedParticles(SUSPENDED_PARTICLE_COUNT)
 
 export default function TankEffects() {
   // `beam` marks bubbles that rise through one of the two light rays below
@@ -105,6 +166,28 @@ export default function TankEffects() {
           filter: 'blur(6px)',
         }}
       />
+
+      {/* Suspended particles: rendered beneath the bubbles so they read as
+          faint background texture the bubbles rise past, not a competing
+          effect. Each has its own rise/fade timing (see
+          buildSuspendedParticles), so the field never looks synchronized. */}
+      {SUSPENDED_PARTICLES.map((p) => (
+        <span
+          key={p.key}
+          className="absolute"
+          style={{
+            left: p.left,
+            bottom: '-3%',
+            width: p.width,
+            height: p.height,
+            borderRadius: p.radius,
+            background: `radial-gradient(circle at ${p.gradCx}% ${p.gradCy}%, rgba(255,255,255,0.9) 0%, rgba(214,235,255,0.55) 50%, rgba(214,235,255,0) 75%)`,
+            '--particle-sway': `${p.swayPx}px`,
+            '--particle-opacity': p.opacityPeak,
+            animation: `particle-rise ${p.riseDuration}s linear ${p.riseDelay}s infinite, particle-fade ${p.fadeDuration}s ease-in-out ${p.fadeDelay}s infinite`,
+          }}
+        />
+      ))}
 
       {bubbles.map((b, i) => {
         const catchStyle = b.beam

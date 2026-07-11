@@ -88,6 +88,21 @@ function useIdleBlink(canBlink) {
   return isBlinking
 }
 
+// Axolotl-specific play wiggle, scoped entirely to this file via an inline
+// <style> tag — same approach BettaRig/TurtleRig use for their own
+// betta-play-wiggle/turtle-play-bounce keyframes, kept local rather than
+// added to tailwind.config.js since it's specific to this rig's action
+// flow. A small, brief body sway (translate/rotate only, no reposition),
+// distinct in feel from betta's side-to-side wiggle and turtle's bounce.
+const AXOLOTL_KEYFRAMES = `
+@keyframes axolotl-play-wiggle {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-1%, -1%) rotate(-5deg); }
+  45% { transform: translate(1%, -1.5%) rotate(4deg); }
+  70% { transform: translate(-0.5%, -0.5%) rotate(-2deg); }
+}
+`
+
 // Small hearts float up near the head while isPlaying is true — display
 // only, positions are percentages within the pet's own aspect box.
 const PLAY_HEARTS = [
@@ -132,16 +147,18 @@ export default function PetRenderer({ mood = 'happy', stats = {}, isEating = fal
   const mouth = isChomping ? 'mouth-idle' : face.mouth
   const layers = [...BASE_LAYERS, eyes, mouth]
 
-  // Feed only: a soft, curious lean toward the falling pellet (which drops
-  // in from the upper-left of this box per the shared pellet-drop keyframe),
-  // easing back to neutral once isFeeding ends. Lives on this inner wrapper
-  // (not the outer pet-bob element, not the per-layer limb/gill/tail
-  // animations) so it never fights any of them — same approach already used
-  // by BettaRig for its own feed lean. No transform outside of feeding, so
-  // idle/play/clean are untouched.
-  const feedLeanStyle = isFeeding
+  // Feed: a soft, curious lean toward the falling pellet (which drops in
+  // from the upper-left of this box per the shared pellet-drop keyframe).
+  // Play: a small, brief happy wiggle — same action/reaction flow already
+  // used by BettaRig/TurtleRig (isFeeding/isPlaying branch on this inner
+  // wrapper, easing back to neutral otherwise). Lives here rather than the
+  // outer pet-bob element or the per-layer limb/gill/tail animations so it
+  // never fights any of them, and never touches the idle rig itself.
+  const actionStyle = isFeeding
     ? { transform: 'translate(-2%, -2%) rotate(-2deg)', transition: 'transform 500ms ease-out' }
-    : { transform: 'translate(0, 0) rotate(0deg)', transition: 'transform 500ms ease-out' }
+    : isPlaying
+      ? { animation: 'axolotl-play-wiggle 1.4s ease-in-out 1' }
+      : { transform: 'translate(0, 0) rotate(0deg)', transition: 'transform 500ms ease-out' }
 
   return (
     <div
@@ -149,7 +166,8 @@ export default function PetRenderer({ mood = 'happy', stats = {}, isEating = fal
       role="img"
       aria-label={`Mochi the axolotl, mood: ${mood}`}
     >
-      <div className="relative aspect-[503/410] w-full drop-shadow-lg" style={feedLeanStyle}>
+      <style>{AXOLOTL_KEYFRAMES}</style>
+      <div className="relative aspect-[503/410] w-full drop-shadow-lg" style={actionStyle}>
         {layers.map((layer, index) => {
           const anim = layer === 'tail'
             ? { className: ' animate-tail-sway', style: { transformOrigin: '61% 54%' } }

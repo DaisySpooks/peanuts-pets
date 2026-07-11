@@ -5,10 +5,35 @@ import HabitatScreen from './components/HabitatScreen.jsx'
 import PetLoadingScreen from './components/PetLoadingScreen.jsx'
 import AdminScreen from './components/AdminScreen.jsx'
 import { useAuthStatus } from './auth/useAuthStatus.js'
+import { logout } from './auth/discordAuth.js'
 import { getMyPet, performPetAction } from './petApi.js'
 import { PET_OPTIONS } from './petOptions.js'
 import { defaultStats } from './mockData.js'
 import { buildPetActions } from './petActions.js'
+
+// Fixed top-right controls shown across every authenticated screen except
+// AdminScreen itself (which has its own nav). Logout takes the slot the
+// Admin button used to occupy alone; Admin now stacks directly beneath it
+// for admins. Same styling language (border-gold/30, bg-[#171513]) and the
+// same fixed positioning/breakpoint behavior as the button this replaces —
+// only the layout changed, not auth/logout/permission logic.
+function AuthControls({ hasAdminAccess, onAdminClick }) {
+  const controlButtonClassName =
+    'rounded-xl border border-gold/30 bg-[#171513] px-3 py-2 text-sm text-cream transition hover:border-gold/60 hover:bg-[#201c18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60'
+
+  return (
+    <div className="fixed right-4 top-4 z-50 flex flex-col items-end gap-2">
+      <button type="button" onClick={logout} className={controlButtonClassName}>
+        Logout
+      </button>
+      {hasAdminAccess ? (
+        <button type="button" onClick={onAdminClick} className={controlButtonClassName}>
+          Admin
+        </button>
+      ) : null}
+    </div>
+  )
+}
 
 function buildHabitatStats(pet) {
   const persistedValues = {
@@ -85,15 +110,7 @@ export default function App() {
   if (pet === undefined || petLoadError) {
     return (
       <>
-        {hasAdminAccess ? (
-          <button
-            type="button"
-            onClick={() => setViewingAdminScreen(true)}
-            className="fixed right-4 top-4 z-50 rounded-xl border border-gold/30 bg-[#171513] px-3 py-2 text-sm text-cream transition hover:border-gold/60 hover:bg-[#201c18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
-          >
-            Admin
-          </button>
-        ) : null}
+        <AuthControls hasAdminAccess={hasAdminAccess} onAdminClick={() => setViewingAdminScreen(true)} />
         <PetLoadingScreen error={petLoadError} onRetry={() => setPetReloadKey((value) => value + 1)} />
       </>
     )
@@ -102,15 +119,7 @@ export default function App() {
   if (pet === null) {
     return (
       <>
-        {hasAdminAccess ? (
-          <button
-            type="button"
-            onClick={() => setViewingAdminScreen(true)}
-            className="fixed right-4 top-4 z-50 rounded-xl border border-gold/30 bg-[#171513] px-3 py-2 text-sm text-cream transition hover:border-gold/60 hover:bg-[#201c18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
-          >
-            Admin
-          </button>
-        ) : null}
+        <AuthControls hasAdminAccess={hasAdminAccess} onAdminClick={() => setViewingAdminScreen(true)} />
         <CreatePetScreen
           onCreate={setPet}
           onViewAccessScreen={() => setViewingAccessScreen(true)}
@@ -124,15 +133,7 @@ export default function App() {
   const habitatActions = buildPetActions(pet)
   return (
     <>
-      {hasAdminAccess ? (
-        <button
-          type="button"
-          onClick={() => setViewingAdminScreen(true)}
-          className="fixed right-4 top-4 z-50 rounded-xl border border-gold/30 bg-[#171513] px-3 py-2 text-sm text-cream transition hover:border-gold/60 hover:bg-[#201c18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60"
-        >
-          Admin
-        </button>
-      ) : null}
+      <AuthControls hasAdminAccess={hasAdminAccess} onAdminClick={() => setViewingAdminScreen(true)} />
       <HabitatScreen
         pet={{ name: pet.petName, species: speciesLabel }}
         petType={pet.petType}

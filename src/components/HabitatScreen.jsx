@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import TankStage from './TankStage.jsx'
 import StatBar from './StatBar.jsx'
 import ActionCard from './ActionCard.jsx'
-import { logout } from '../auth/discordAuth.js'
 
 // Pellet sinks toward the mouth over this long (matches the pellet-drop
 // animation duration in tailwind.config.js); mouth-eating only kicks in
@@ -153,27 +152,6 @@ export default function HabitatScreen({ pet, petType, stats, actions, onActionPe
             <h1 className="text-xl font-semibold text-cream md:text-2xl">{pet.name}</h1>
             <p className="text-sm text-cream/50">{pet.species}</p>
           </div>
-          {/* Account pill: a secondary, understated control (not a primary
-              action) — same charcoal-gradient + thin-bronze-border language
-              as the cards, just compact. The whole pill still triggers the
-              same, unchanged logout() call the old icon button did. */}
-          <button
-            type="button"
-            onClick={logout}
-            aria-label="Log out"
-            title="Log out"
-            className="flex items-center gap-2 rounded-full border border-[#8b6f47]/30 bg-gradient-to-b from-[#211d18] via-[#161310] to-[#0d0b09] px-3 py-1.5 text-cream/70 shadow-[0_10px_24px_-12px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.05)] transition duration-150 ease-out hover:border-[#8b6f47]/55 hover:text-cream/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 focus-visible:ring-offset-2 focus-visible:ring-offset-ink md:px-4 md:py-2"
-          >
-            <span aria-hidden="true" className="flex items-center gap-1.5 text-xs md:text-sm">
-              <span>👤</span>
-              <span className="hidden sm:inline">Account</span>
-            </span>
-            <span aria-hidden="true" className="h-3 w-px bg-cream/15" />
-            <span aria-hidden="true" className="flex items-center gap-1 text-xs md:text-sm">
-              <span>↩</span>
-              Logout
-            </span>
-          </button>
         </header>
 
         <main
