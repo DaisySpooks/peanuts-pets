@@ -1,15 +1,14 @@
 // Minimal Supabase access via raw REST calls to PostgREST (no SDK
 // dependency — same approach as discord.js talking to Discord's REST API
 // directly). Server-side only: the service-role key never leaves this file.
+import {
+  FALLBACK_DEFAULT_COLOUR,
+  isValidColourForSpecies,
+  rollColourForSpecies,
+} from './petColours.js'
+
 const PET_TYPES = ['axolotl', 'betta', 'turtle']
 const MAX_PET_NAME_LENGTH = 20
-// No colour selection/randomization yet — every new pet gets its species'
-// single existing colour folder (see public/assets/<species>/<colour>/).
-const SPECIES_DEFAULT_COLOUR = {
-  axolotl: 'pink',
-  turtle: 'green',
-  betta: 'blue',
-}
 const DEFAULT_CARE_STATS = {
   hunger: 78,
   cleanliness: 86,
@@ -140,7 +139,7 @@ function toPet(row, { includeDiscordUserId = false } = {}) {
     // Falls back to the species default when the column is missing (migration
     // not yet run) or a pre-migration row hasn't been backfilled, so older
     // clients/rigs always get a renderable colour rather than null.
-    colour: row.colour ?? SPECIES_DEFAULT_COLOUR[row.pet_type] ?? null,
+    colour: row.colour ?? FALLBACK_DEFAULT_COLOUR[row.pet_type] ?? null,
     lastFeedAt: row.last_feed_at ?? null,
     lastCleanAt: row.last_clean_at ?? null,
     lastPlayAt: row.last_play_at ?? null,
@@ -326,6 +325,11 @@ export async function createPetIfNotExists({ supabaseUrl, serviceRoleKey, discor
   const existing = await getPetByDiscordUserId({ supabaseUrl, serviceRoleKey, discordUserId })
   if (existing) return existing
 
+  // Rolled once, outside the retry loop below, so a failed/retried insert
+  // attempt (missing-column detection, a lost race, etc.) never re-rolls —
+  // the same colour is reused for every attempt at creating this one pet.
+  const rolledColour = rollColourForSpecies(petType) || FALLBACK_DEFAULT_COLOUR[petType]
+
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const response = await fetch(getPetsEndpointUrl(supabaseUrl), {
       method: 'POST',
@@ -340,7 +344,7 @@ export async function createPetIfNotExists({ supabaseUrl, serviceRoleKey, discor
         // Omitted entirely (rather than sent as null) once the column is
         // known missing, so a retry after detectMissingOptionalColumns
         // flips the flag doesn't just fail the same way again.
-        ...(hasColourColumn ? { colour: SPECIES_DEFAULT_COLOUR[petType] } : {}),
+        ...(hasColourColumn ? { colour: rolledColour } : {}),
       }]),
     })
 
@@ -531,6 +535,7 @@ export async function updatePetForAdmin({
   discordUserId,
   petType,
   petName,
+  colour,
   statPreset,
   clearActionTimestamps = false,
   resetAffection = false,
@@ -554,6 +559,19 @@ export async function updatePetForAdmin({
       throw new Error('invalid_pet_name')
     }
     payload.pet_name = normalizedPetName
+  }
+
+  // Admin-only colour override, for testing every colour (including the
+  // player-unreachable orange) without waiting on the weighted roll. Valid
+  // colours depend on species — validated against the species this update
+  // is actually landing on, which is the new petType if one was also passed
+  // in this same call, otherwise the pet's existing species.
+  if (colour !== undefined) {
+    const speciesForValidation = payload.pet_type || existing.petType
+    if (!isValidColourForSpecies(speciesForValidation, colour, { allowOrange: true })) {
+      throw new Error('invalid_pet_colour')
+    }
+    payload.colour = colour
   }
 
   if (statPreset !== undefined) {

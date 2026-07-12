@@ -484,6 +484,7 @@ app.post('/api/admin/my-pet/update', accessRateLimiter, requireAdminAccess, asyn
       discordUserId: req.discordUserId,
       petType: req.body?.petType,
       petName: req.body?.name,
+      colour: req.body?.colour,
       statPreset: req.body?.statPreset,
       clearActionTimestamps: req.body?.clearActionTimestamps === true,
       resetAffection: req.body?.resetAffection === true,
@@ -502,6 +503,7 @@ app.post('/api/admin/my-pet/update', accessRateLimiter, requireAdminAccess, asyn
     if (
       error.message === 'invalid_pet_type' ||
       error.message === 'invalid_pet_name' ||
+      error.message === 'invalid_pet_colour' ||
       error.message === 'invalid_stat_preset' ||
       error.message === 'invalid_simulate_elapsed_hours'
     ) {

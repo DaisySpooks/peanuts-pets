@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { deleteMyPetAdmin, getAdminPets, getAdminSummary, resetMyPetCooldowns, updateMyPetAdmin } from '../adminApi.js'
 import { PET_OPTIONS } from '../petOptions.js'
+import { ADMIN_SELECTABLE_COLOURS } from '../petColourOptions.js'
+import PetPreview from './PetPreview.jsx'
 
 const MAX_NAME_LENGTH = 20
 
@@ -66,6 +68,7 @@ export default function AdminScreen({ currentDiscordUserId, myPet, onMyPetChange
   const [petsFilter, setPetsFilter] = useState('')
   const [petType, setPetType] = useState(myPet?.petType || PET_OPTIONS[0].key)
   const [petName, setPetName] = useState(myPet?.petName || '')
+  const [petColour, setPetColour] = useState(myPet?.colour || null)
   const [simulateHours, setSimulateHours] = useState('24')
   const [statusMessage, setStatusMessage] = useState(null)
   const [errorMessage, setErrorMessage] = useState(null)
@@ -76,6 +79,7 @@ export default function AdminScreen({ currentDiscordUserId, myPet, onMyPetChange
   useEffect(() => {
     setPetType(myPet?.petType || PET_OPTIONS[0].key)
     setPetName(myPet?.petName || '')
+    setPetColour(myPet?.colour || null)
   }, [myPet])
 
   function applyUpdatedPetLocally(updatedPet) {
@@ -122,6 +126,10 @@ export default function AdminScreen({ currentDiscordUserId, myPet, onMyPetChange
     }
   }, [])
 
+  // Returns whether the update actually succeeded, so callers that need to
+  // revert optimistic local state (see handleColourChange) don't have to
+  // read back the errorMessage state, which wouldn't reflect this call's
+  // outcome inside the same closure until the next render.
   const applyPetUpdate = async (label, task) => {
     setIsSaving(true)
     setErrorMessage(null)
@@ -132,18 +140,20 @@ export default function AdminScreen({ currentDiscordUserId, myPet, onMyPetChange
       if (updatedPet === null) {
         onMyPetDelete?.()
         setStatusMessage('No pet found for this admin account.')
-      } else {
-        applyUpdatedPetLocally(updatedPet)
-        setStatusMessage(label)
+        return true
       }
+      applyUpdatedPetLocally(updatedPet)
+      setStatusMessage(label)
+      return true
     } catch (error) {
       if (error.status === 404) {
         onMyPetDelete?.()
         setStatusMessage('No pet found for this admin account.')
-      } else {
-        setStatusMessage(null)
-        setErrorMessage('Could not save that admin change.')
+        return true
       }
+      setStatusMessage(null)
+      setErrorMessage('Could not save that admin change.')
+      return false
     } finally {
       setIsSaving(false)
     }
@@ -154,6 +164,20 @@ export default function AdminScreen({ currentDiscordUserId, myPet, onMyPetChange
     await applyPetUpdate('Saved your pet testing changes.', () =>
       updateMyPetAdmin({ petType, name: petName.trim() }),
     )
+  }
+
+  // Saves immediately on selection (no separate submit) so the persisted
+  // colour and the live preview below update together as soon as an admin
+  // picks a swatch — no new pet, no page reload. Optimistically shows the
+  // picked colour right away and reverts it if the save actually failed.
+  const handleColourChange = async (event) => {
+    const nextColour = event.target.value
+    const previousColour = petColour
+    setPetColour(nextColour)
+    const succeeded = await applyPetUpdate('Updated pet colour.', () => updateMyPetAdmin({ colour: nextColour }))
+    if (!succeeded) {
+      setPetColour(previousColour)
+    }
   }
 
   const handleStatsPreset = async (statPreset) => {
@@ -415,6 +439,37 @@ export default function AdminScreen({ currentDiscordUserId, myPet, onMyPetChange
                       </button>
                     </form>
 
+                    <div className="mt-5 rounded-2xl border border-cream/10 bg-cream/[0.03] p-4">
+                      <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gold/70">
+                        Colour (testing only)
+                      </p>
+                      <p className="mb-3 text-xs text-cream/50">
+                        Includes orange, which is reserved for a future Nutshell release and never assigned to
+                        real players.
+                      </p>
+                      <div className="flex items-center gap-4">
+                        <div className="h-20 w-20 shrink-0">
+                          <PetPreview species={myPet.petType} colour={petColour} />
+                        </div>
+                        <label className="sr-only" htmlFor="admin-pet-colour">
+                          Colour
+                        </label>
+                        <select
+                          id="admin-pet-colour"
+                          value={petColour || ''}
+                          disabled={isSaving}
+                          onChange={handleColourChange}
+                          className="w-full rounded-xl border border-cream/15 bg-cream/5 px-3.5 py-2.5 text-sm capitalize text-cream focus:outline-none focus:ring-2 focus:ring-gold/50"
+                        >
+                          {(ADMIN_SELECTABLE_COLOURS[myPet.petType] || []).map((colourOption) => (
+                            <option key={colourOption} value={colourOption} className="bg-[#171513]">
+                              {colourOption}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
                     <div className="mt-5 grid gap-3 sm:grid-cols-2">
                       <button
                         type="button"
@@ -482,7 +537,7 @@ export default function AdminScreen({ currentDiscordUserId, myPet, onMyPetChange
                     </form>
 
                     <div className="mt-4 rounded-2xl border border-cream/10 bg-cream/[0.03] p-4 text-sm text-cream/60">
-                      <p>Current pet: {myPet.petName} ({myPet.petType})</p>
+                      <p>Current pet: {myPet.petName} ({myPet.petType}, {myPet.colour || 'no colour set'})</p>
                       <p className="mt-2">Feed available after: {formatTimestamp(myPet.lastFeedAt)}</p>
                       <p>Clean available after: {formatTimestamp(myPet.lastCleanAt)}</p>
                       <p>Play available after: {formatTimestamp(myPet.lastPlayAt)}</p>
