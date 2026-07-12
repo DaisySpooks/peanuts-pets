@@ -19,7 +19,7 @@ export default function ActionCard({ actions, onAction, activeKey, pendingKey, m
       <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#f5d38f]/60 to-transparent" />
       {moodText ? (
         <>
-          <div className="relative -mx-1 mb-0.5 flex items-center justify-center gap-2 rounded-lg border border-[#a97845]/25 bg-black/20 px-3 py-1.5 text-center shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]">
+          <div className="relative -mx-1 mb-3 flex items-center justify-center gap-2 rounded-lg border border-[#a97845]/25 bg-black/20 px-3 py-1.5 text-center shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]">
             <span aria-hidden="true" className="text-[10px] text-[#d4a45a]">✦</span>
             <span
               aria-hidden="true"
@@ -32,11 +32,6 @@ export default function ActionCard({ actions, onAction, activeKey, pendingKey, m
           </div>
         </>
       ) : null}
-      <h2 className="mb-2 flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-[#f5d38f] [text-shadow:0_1px_1px_rgba(0,0,0,0.5),0_0_10px_rgba(240,200,120,0.15)]">
-        <span aria-hidden="true" className="text-[#c9a44c]/70">✦</span>
-        Care Actions
-        <span aria-hidden="true" className="text-[#c9a44c]/70">✦</span>
-      </h2>
       <div className="mb-3 h-px bg-gradient-to-r from-transparent via-[#c9a44c]/60 to-transparent" />
       <div className="grid grid-cols-3 gap-3">
         {actions.map((action) => {

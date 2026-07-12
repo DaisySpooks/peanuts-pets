@@ -9,6 +9,24 @@ const STAT_ICONS = {
   affection: '💗',
 }
 
+// Affection has no fixed max (it increments indefinitely from petting), so
+// unlike the other stats its bar isn't proportional to `value` — it's a
+// decorative "always full" pink bar with a sheen, sized/shaped identically
+// to the other stat bars. Shared between the mobile Companion Status list
+// (below) and the desktop Affection card (HabitatScreen) so both stay
+// visually identical.
+export function AffectionBar({ className = '' }) {
+  return (
+    <div
+      className={`relative h-3 w-full overflow-hidden rounded-full border border-[#120c07] bg-[#140b10] shadow-[inset_0_2px_4px_rgba(0,0,0,0.85)] ${className}`}
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_50%,rgba(255,205,219,0.16),transparent_22%),radial-gradient(circle_at_50%_50%,rgba(255,183,203,0.14),transparent_18%),radial-gradient(circle_at_82%_50%,rgba(255,205,219,0.16),transparent_22%)] opacity-80" />
+      <div className="absolute inset-y-[2px] left-2 right-2 rounded-full bg-gradient-to-r from-[#5f2736] via-[#b85f78] to-[#f0a9bb] opacity-75" />
+      <div className="absolute inset-y-0 left-0 w-1/3 -skew-x-[20deg] bg-gradient-to-r from-transparent via-white/45 to-transparent animate-bar-sheen" />
+    </div>
+  )
+}
+
 export default function StatBar({ stats }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border-2 border-[#7a4f22] bg-gradient-to-b from-[#5f4a34] via-[#42321f] to-[#2c2014] p-4 shadow-[0_22px_44px_-16px_rgba(10,6,2,0.75),0_8px_16px_-6px_rgba(10,6,2,0.6),inset_0_1px_0_rgba(255,224,170,0.16),inset_0_-3px_6px_rgba(0,0,0,0.45)] ring-1 ring-inset ring-[#c9a44c]/15 transition-transform duration-300 ease-out hover:-translate-y-px">
@@ -20,7 +38,7 @@ export default function StatBar({ stats }) {
       <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#f5d38f]/60 to-transparent" />
       <h2 className="mb-2 flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-[#f5d38f] [text-shadow:0_1px_1px_rgba(0,0,0,0.5),0_0_10px_rgba(240,200,120,0.15)]">
         <span aria-hidden="true" className="text-[#c9a44c]/70">✦</span>
-        Companion Status
+        Pet Status
         <span aria-hidden="true" className="text-[#c9a44c]/70">✦</span>
       </h2>
       <div className="mb-3 h-px bg-gradient-to-r from-transparent via-[#c9a44c]/60 to-transparent" />
@@ -45,20 +63,14 @@ export default function StatBar({ stats }) {
                   {STAT_ICONS[stat.key] || '⭐'}
                 </span>
                 {stat.label}
-                {stat.key === 'affection' ? (
-                  <span className="rounded-full border border-[#f0a9bb]/25 bg-[#f0a9bb]/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#f4c1cf]">
-                    Bond
-                  </span>
-                ) : null}
+               
+              
+                
               </span>
               <span className={`tabular-nums ${stat.key === 'affection' ? 'text-[#ffd5df]' : 'text-[#e6c48f]'}`}>{stat.value}</span>
             </div>
             {stat.key === 'affection' ? (
-              <div className="relative h-3 w-full overflow-hidden rounded-full border border-[#120c07] bg-[#140b10] shadow-[inset_0_2px_4px_rgba(0,0,0,0.85)]">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_50%,rgba(255,205,219,0.16),transparent_22%),radial-gradient(circle_at_50%_50%,rgba(255,183,203,0.14),transparent_18%),radial-gradient(circle_at_82%_50%,rgba(255,205,219,0.16),transparent_22%)] opacity-80" />
-                <div className="absolute inset-y-[2px] left-2 right-2 rounded-full bg-gradient-to-r from-[#5f2736] via-[#b85f78] to-[#f0a9bb] opacity-75" />
-                <div className="absolute inset-y-0 left-0 w-1/3 -skew-x-[20deg] bg-gradient-to-r from-transparent via-white/45 to-transparent animate-bar-sheen" />
-              </div>
+              <AffectionBar />
             ) : (
               <div className="h-3 w-full overflow-hidden rounded-full border border-black/60 bg-[#120c07] shadow-[inset_0_2px_4px_rgba(0,0,0,0.85)]">
                 <div

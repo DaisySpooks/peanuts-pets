@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import TankStage from './TankStage.jsx'
-import StatBar from './StatBar.jsx'
+import StatBar, { AffectionBar } from './StatBar.jsx'
 import ActionCard from './ActionCard.jsx'
 import PetIdentityCard, { MobilePetIdentityCard } from './PetIdentityCard.jsx'
 
@@ -162,7 +162,7 @@ export default function HabitatScreen({ pet, petType, colour, stats, actions, on
         <main
           className="flex flex-1 flex-col gap-3 md:min-h-0 md:gap-3"
         >
-          <div className="flex flex-none gap-3 md:grid md:min-h-0 md:flex-1 md:grid-cols-[clamp(11rem,16vw,12rem)_minmax(0,1fr)] md:items-stretch md:gap-[clamp(0.75rem,1.6vw,1.25rem)]">
+          <div className="flex flex-none gap-3 md:grid md:min-h-0 md:flex-1 md:grid-cols-[clamp(11rem,10rem+2vw,12rem)_minmax(0,1fr)] md:items-stretch md:gap-[clamp(0.75rem,1.6vw,1.25rem)]">
             <PetIdentityCard name={pet.name} species={pet.species} temperament={pet.temperament} />
 
             <div className="relative min-w-0 flex-1 md:min-h-0">
@@ -244,21 +244,19 @@ export default function HabitatScreen({ pet, petType, colour, stats, actions, on
                     className="pointer-events-none absolute inset-0 opacity-[0.05] mix-blend-overlay"
                     style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
                   />
-                  <div className="relative flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="flex items-center gap-2 text-sm font-semibold text-[#ffe4eb]">
-                        <span
-                          aria-hidden="true"
-                          className="flex h-6 w-6 items-center justify-center rounded-full border border-[#f0a9bb]/35 bg-black/20 text-sm leading-none shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]"
-                        >
-                          💗
-                        </span>
-                        Affection
-                      </p>
-                      <p className="mt-1 text-xs text-[#f4c1cf]/85">Growing closer</p>
-                    </div>
-                    <p className="shrink-0 text-xl font-semibold tabular-nums text-[#ffd5df]">{affectionStat.value}</p>
+                  <div className="relative flex items-baseline justify-between gap-3 text-sm">
+                    <span className="flex items-center gap-2 font-semibold text-[#ffe4eb]">
+                      <span
+                        aria-hidden="true"
+                        className="flex h-6 w-6 items-center justify-center rounded-full border border-[#f0a9bb]/35 bg-black/20 text-sm leading-none shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]"
+                      >
+                        💗
+                      </span>
+                      Affection
+                    </span>
+                    <span className="shrink-0 tabular-nums text-[#ffd5df]">{affectionStat.value}</span>
                   </div>
+                  <AffectionBar className="relative mt-3" />
                 </div>
               ) : null}
             </div>

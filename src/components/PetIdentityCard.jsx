@@ -22,13 +22,9 @@ export default function PetIdentityCard({ name, species, temperament }) {
         <h1 className="mt-2 break-words text-2xl font-bold leading-tight text-cream [text-shadow:0_1px_1px_rgba(0,0,0,0.5),0_0_10px_rgba(240,200,120,0.12)]">
           {name}
         </h1>
-        <span className="mt-3 inline-flex items-center rounded-full border border-[#c9a44c]/40 bg-black/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#f0c988] shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]">
-          {species}
-        </span>
+        <p className="mt-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#f0c988]">{species}</p>
         {temperament ? (
-          <p className="mt-2 text-xs text-cream/50">
-            Temperament: <span className="text-cream/70">{capitalize(temperament)}</span>
-          </p>
+          <p className="mt-1 text-xs text-cream/45">{capitalize(temperament)}</p>
         ) : null}
       </div>
 
@@ -71,14 +67,10 @@ export function MobilePetIdentityCard({ name, species, temperament }) {
         <h1 className="truncate text-lg font-bold leading-tight text-cream [text-shadow:0_1px_1px_rgba(0,0,0,0.5),0_0_10px_rgba(240,200,120,0.12)]">
           {name}
         </h1>
-        <span className="inline-flex items-center rounded-full border border-[#c9a44c]/40 bg-black/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#f0c988] shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]">
-          {species}
-        </span>
+        <span className="text-xs font-semibold uppercase tracking-[0.15em] text-[#f0c988]">{species}</span>
       </div>
       {temperament ? (
-        <p className="relative mt-1 text-[11px] text-cream/50">
-          Temperament: <span className="text-cream/70">{capitalize(temperament)}</span>
-        </p>
+        <p className="relative mt-1 text-[11px] text-cream/45">{capitalize(temperament)}</p>
       ) : null}
     </div>
   )

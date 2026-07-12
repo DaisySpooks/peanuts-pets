@@ -75,7 +75,7 @@ export default function TankStage({ species, colour, name, lastPettedAt, mood, s
   const dirtyWaterOpacity = getDirtyWaterOpacity(stats?.cleanliness)
 
   return (
-    <div className="relative mx-auto aspect-[3/2] max-h-[34vh] w-full max-w-xl overflow-hidden rounded-3xl border-4 border-gold/40 bg-gradient-to-b from-[#3E7873] via-[#2E5E5A] to-[#1F4440] shadow-[0_0_0_1px_rgba(201,164,76,0.15),0_20px_50px_-12px_rgba(0,0,0,0.6)] sm:aspect-[16/10] md:aspect-[16/7] md:h-full md:max-h-[640px] md:w-auto md:max-w-full">
+    <div className="relative mx-auto aspect-[3/2] max-h-[34vh] w-full max-w-xl overflow-hidden rounded-3xl border-2 border-gold/25 bg-gradient-to-b from-[#385F5C] via-[#284542] to-[#182E2C] shadow-[0_0_0_1px_rgba(201,164,76,0.10),0_16px_38px_-14px_rgba(0,0,0,0.5)] sm:aspect-[16/10] md:aspect-[16/7] md:h-full md:max-h-[640px] md:w-auto md:max-w-full">
       <style>{CLEAN_FEEDBACK_KEYFRAMES}</style>
       <img
         src="/assets/peanuts-pets-tank/water.png"
@@ -239,11 +239,11 @@ export default function TankStage({ species, colour, name, lastPettedAt, mood, s
           }}
         />
         {/* subtle darker tint in the lower corners for depth */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(0,0,0,0.16),transparent_35%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(0,0,0,0.16),transparent_35%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(0,0,0,0.11),transparent_40%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(0,0,0,0.11),transparent_40%)]" />
       </div>
       {/* glass rim highlight */}
-      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-cream/10" />
+      <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-cream/[0.06]" />
     </div>
   )
 }
