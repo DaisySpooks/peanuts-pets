@@ -66,7 +66,7 @@ const CLEAN_FEEDBACK_KEYFRAMES = `
 
 // The tank "frame": glass, water, reflections, layout container.
 // Composes decor/effects/pet but never reaches into PetRenderer's internals.
-export default function TankStage({ species, name, lastPettedAt, mood, stats, isEating, isFeeding, feedTrigger, isCleaning, isPlaying, onPetPersist }) {
+export default function TankStage({ species, colour, name, lastPettedAt, mood, stats, isEating, isFeeding, feedTrigger, isCleaning, isPlaying, onPetPersist }) {
   // Always the real stat-derived value — never forced to 0 during the Clean
   // action. The existing transition-opacity below animates smoothly from
   // whatever the overlay's current opacity is to this new target the moment
@@ -104,6 +104,7 @@ export default function TankStage({ species, name, lastPettedAt, mood, stats, is
       <PetShadow mood={mood} isFeeding={isFeeding} isPlaying={isPlaying} />
       <PetRig
         species={species}
+        colour={colour}
         name={name}
         lastPettedAt={lastPettedAt}
         mood={mood}

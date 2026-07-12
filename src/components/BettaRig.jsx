@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useIdleBlink } from './useIdleBlink.js'
+import { petAssetPath } from './petAssetPath.js'
 
 // Betta's split-face rig: a plain `head` base with separate eyes/mouth
 // layers on top, same pattern as the axolotl rig — but betta has no
@@ -27,7 +28,7 @@ const BASE_LAYERS = [
 // rotate+translate wobbles, not axolotl-specific in content, so reusing
 // them here doesn't require touching the shared config or the axolotl
 // file. Transform origins below are measured from each layer's real pixel
-// alpha bounds (public/assets/betta/*.png), at the edge where that part
+// alpha bounds (public/assets/betta/<colour>/*.png), at the edge where that part
 // visually attaches to the body — same convention already used by the
 // axolotl rig. Durations/delays are deliberately distinct per fin so
 // nothing moves in lockstep.
@@ -219,6 +220,7 @@ export default function BettaRig({
   isCleaning = false,
   onPetPersist,
   name,
+  colour = null,
 }) {
   const bob = mood === 'happy' ? 'animate-pet-bob motion-ambient' : ''
   const isEatingHeld = useExtendedEating(isEating)
@@ -501,7 +503,7 @@ export default function BettaRig({
             style={{ zIndex: index, ...getPettingWrapperStyle(layer), ...getIdleWrapperStyle(layer) }}
           >
             <img
-              src={`/assets/betta/${layer}.png`}
+              src={petAssetPath('betta', layer, colour)}
               alt=""
               className="absolute inset-0 h-full w-full motion-ambient"
               style={finLayerStyle(layer, idleLoopDelays[layer] ?? 0)}

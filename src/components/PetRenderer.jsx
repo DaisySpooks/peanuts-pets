@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { petAssetPath } from './petAssetPath.js'
 
 // Renders the layered axolotl. Swap this component's internals for a PixiJS
 // sprite pipeline later — TankStage, TankDecor, TankEffects, StatBar,
@@ -200,6 +201,7 @@ export default function PetRenderer({
   isPlaying = false,
   isCleaning = false,
   onPetPersist,
+  colour = null,
 }) {
   const bob = mood === 'happy' ? 'animate-pet-bob motion-ambient' : ''
   const face = getAxolotlFaceState(mood, stats, isEating, isPlaying)
@@ -499,7 +501,7 @@ export default function PetRenderer({
               style={{ zIndex: index, ...getPettingWrapperStyle(layer), ...getIdleWrapperStyle(layer) }}
             >
               <img
-                src={`/assets/axolotl/${layer}.png`}
+                src={petAssetPath('axolotl', layer, colour)}
                 alt=""
                 className={`absolute inset-0 h-full w-full${anim.className}`}
                 style={anim.style}

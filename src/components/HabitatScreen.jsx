@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import TankStage from './TankStage.jsx'
 import StatBar from './StatBar.jsx'
 import ActionCard from './ActionCard.jsx'
+import PetIdentityCard from './PetIdentityCard.jsx'
 
 // Pellet sinks toward the mouth over this long (matches the pellet-drop
 // animation duration in tailwind.config.js); mouth-eating only kicks in
@@ -22,7 +23,13 @@ const SLEEPY_HAPPINESS_THRESHOLD = 30
 const HAPPY_HAPPINESS_THRESHOLD = 85
 
 // Active action feedback takes priority over everything else, then urgent
-// stat needs (dirty tank, hungry, sleepy), then general mood/default.
+// stat needs (sleepy, hungry, dirty tank), then general mood/default. Sleepy
+// is checked before low cleanliness: happiness <= SLEEPY_HAPPINESS_THRESHOLD
+// is what actually disables petting (see canPet/isSleepy in the pet rigs),
+// and a neglected pet's cleanliness/happiness decay together closely enough
+// that both are often low at once — so when both are true, this message
+// should name the actual reason petting is unavailable rather than the
+// cosmetic dirty-tank state.
 function getPetStatusText({ isFeeding, isCleaning, isPlaying, stats }) {
   if (isFeeding) return 'Snack time!'
   if (isCleaning) return 'Tidying up the tank!'
@@ -30,14 +37,14 @@ function getPetStatusText({ isFeeding, isCleaning, isPlaying, stats }) {
 
   const { hunger, cleanliness, happiness } = stats
 
+  if (typeof happiness === 'number' && happiness <= SLEEPY_HAPPINESS_THRESHOLD) {
+    return 'Getting sleepy.'
+  }
   if (typeof cleanliness === 'number' && cleanliness < LOW_CLEANLINESS_THRESHOLD) {
     return 'Tank could use a tidy.'
   }
   if (typeof hunger === 'number' && hunger < LOW_HUNGER_THRESHOLD) {
     return 'Getting a little hungry.'
-  }
-  if (typeof happiness === 'number' && happiness <= SLEEPY_HAPPINESS_THRESHOLD) {
-    return 'Getting sleepy.'
   }
   if (typeof happiness === 'number' && happiness >= HAPPY_HAPPINESS_THRESHOLD) {
     return 'Feeling bubbly.'
@@ -49,7 +56,7 @@ function getPetStatusText({ isFeeding, isCleaning, isPlaying, stats }) {
   return 'Just floating.'
 }
 
-export default function HabitatScreen({ pet, petType, stats, actions, onActionPersist, onPetPersist }) {
+export default function HabitatScreen({ pet, petType, colour, stats, actions, onActionPersist, onPetPersist }) {
   const statsForMood = Object.fromEntries(stats.map((s) => [s.key, s.value]))
   const careStats = stats.filter((stat) => stat.key !== 'affection')
   const affectionStat = stats.find((stat) => stat.key === 'affection') ?? null
@@ -148,7 +155,7 @@ export default function HabitatScreen({ pet, petType, stats, actions, onActionPe
         </svg>
       </div>
       <div className="relative z-10 mx-auto flex h-full max-w-6xl flex-col gap-3 px-4 py-4 md:gap-3 md:py-5">
-        <header className="flex flex-none items-center justify-between">
+        <header className="flex flex-none items-center justify-between md:hidden">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-gold/70">Peanut&rsquo;s Pets</p>
             <h1 className="text-xl font-semibold text-cream md:text-2xl">{pet.name}</h1>
@@ -159,34 +166,39 @@ export default function HabitatScreen({ pet, petType, stats, actions, onActionPe
         <main
           className="flex flex-1 flex-col gap-3 md:min-h-0 md:gap-3"
         >
-          <div className="relative flex-none md:min-h-0 md:flex-1">
-            {/* Grounded shadow + ambient glow behind the aquarium — purely
-                decorative, absolutely positioned so it never affects layout
-                sizing, clipped to nothing so it can bleed past the tank's
-                own rounded edges. */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center"
-            >
-              <div className="h-[70%] w-[85%] rounded-[999px] bg-[radial-gradient(ellipse_at_center,rgba(201,164,76,0.10)_0%,rgba(201,164,76,0.04)_45%,transparent_72%)] blur-2xl" />
+          <div className="flex flex-none gap-3 md:min-h-0 md:flex-1 md:items-stretch">
+            <PetIdentityCard name={pet.name} species={pet.species} />
+
+            <div className="relative min-w-0 flex-1 md:min-h-0">
+              {/* Grounded shadow + ambient glow behind the aquarium — purely
+                  decorative, absolutely positioned so it never affects layout
+                  sizing, clipped to nothing so it can bleed past the tank's
+                  own rounded edges. */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center"
+              >
+                <div className="h-[70%] w-[85%] rounded-[999px] bg-[radial-gradient(ellipse_at_center,rgba(201,164,76,0.10)_0%,rgba(201,164,76,0.04)_45%,transparent_72%)] blur-2xl" />
+              </div>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-[8%] bottom-[-6%] -z-10 h-[14%] rounded-[999px] bg-black/55 blur-xl"
+              />
+              <TankStage
+                species={petType}
+                colour={colour}
+                name={pet.name}
+                lastPettedAt={pet.lastPettedAt ?? null}
+                mood="happy"
+                stats={statsForMood}
+                isEating={isEating}
+                isFeeding={isFeeding}
+                feedTrigger={feedTrigger}
+                isCleaning={isCleaning}
+                isPlaying={isPlaying}
+                onPetPersist={onPetPersist}
+              />
             </div>
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-[8%] bottom-[-6%] -z-10 h-[14%] rounded-[999px] bg-black/55 blur-xl"
-            />
-            <TankStage
-              species={petType}
-              name={pet.name}
-              lastPettedAt={pet.lastPettedAt ?? null}
-              mood="happy"
-              stats={statsForMood}
-              isEating={isEating}
-              isFeeding={isFeeding}
-              feedTrigger={feedTrigger}
-              isCleaning={isCleaning}
-              isPlaying={isPlaying}
-              onPetPersist={onPetPersist}
-            />
           </div>
 
           <div className="md:hidden">

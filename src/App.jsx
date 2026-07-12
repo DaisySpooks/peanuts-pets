@@ -138,6 +138,7 @@ export default function App() {
       <HabitatScreen
         pet={{ name: pet.petName, species: speciesLabel, lastPettedAt: pet.lastPettedAt ?? null }}
         petType={pet.petType}
+        colour={pet.colour ?? null}
         stats={habitatStats}
         actions={habitatActions}
         onActionPersist={async (action) => {

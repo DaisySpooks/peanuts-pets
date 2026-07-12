@@ -8,18 +8,71 @@
 
 // Scoped keyframes local to this file only.
 const LOCAL_KEYFRAMES = `
-@keyframes ray-sway-a {
-  0%, 100% { transform: translateX(-3%) skewX(-10deg); }
-  50% { transform: translateX(3%) skewX(-4deg); }
+/* Lid light fan: each ray layer keeps a fixed angle (baked into every
+   keyframe stop identically) and only drifts translateX by a couple of
+   px — a real fixed lid light doesn't swing, but the water surface above
+   it is never perfectly still, so the beam should look like it's very
+   faintly wavering, not swaying. Mismatched durations/delays per layer so
+   they never drift in lockstep. */
+@keyframes ray-drift-a {
+  0%, 100% { transform: translateX(-2px) rotate(-6deg); }
+  50% { transform: translateX(2px) rotate(-6deg); }
 }
-@keyframes ray-sway-b {
-  0%, 100% { transform: translateX(3%) skewX(8deg); }
-  50% { transform: translateX(-3%) skewX(3deg); }
+@keyframes ray-drift-b {
+  0%, 100% { transform: translateX(2px) rotate(5deg); }
+  50% { transform: translateX(-2px) rotate(5deg); }
+}
+@keyframes ray-drift-c {
+  0%, 100% { transform: translateX(-1.5px) rotate(-1deg); }
+  50% { transform: translateX(1.5px) rotate(-1deg); }
+}
+/* Gentle opacity pulse, independent duration per layer (not phase-locked
+   to that layer's own drift above), so different parts of the fan brighten
+   and soften on their own unrelated rhythm instead of the whole fan
+   pulsing as one unit. */
+@keyframes ray-glow-a {
+  0%, 100% { opacity: 0.18; }
+  50% { opacity: 0.27; }
+}
+@keyframes ray-glow-b {
+  0%, 100% { opacity: 0.13; }
+  50% { opacity: 0.2; }
+}
+@keyframes ray-glow-c {
+  0%, 100% { opacity: 0.09; }
+  50% { opacity: 0.15; }
+}
+/* One faint band that slowly travels left-to-right across the fan only
+   (clipped to the fan's own footprint below), fading in/out at both ends
+   so it never enters or leaves as a hard edge — as if the moving water
+   surface is briefly bending the lid light brighter along one narrow
+   strip as it passes. */
+@keyframes ray-shimmer-travel {
+  0% { transform: translateX(-45%) skewX(-8deg); opacity: 0; }
+  22% { opacity: 0.5; }
+  50% { opacity: 0.6; }
+  78% { opacity: 0.25; }
+  100% { transform: translateX(145%) skewX(-8deg); opacity: 0; }
 }
 @keyframes caustic-drift {
   0% { background-position: 0% 0%, 40% 20%; }
   50% { background-position: 8% 5%, 30% 28%; }
   100% { background-position: 0% 0%, 40% 20%; }
+}
+/* Water-surface ripple: tiny horizontal drift + a 1-2px vertical wobble,
+   nowhere near a full wave. Three layers with mismatched durations/delays
+   so they never fall into a visible synced rhythm. */
+@keyframes ripple-drift-a {
+  0%, 100% { transform: translate(-1.2%, 0); }
+  50% { transform: translate(1.2%, -1.5px); }
+}
+@keyframes ripple-drift-b {
+  0%, 100% { transform: translate(1%, 0.5px); }
+  50% { transform: translate(-1%, -1px); }
+}
+@keyframes ripple-drift-c {
+  0%, 100% { transform: translate(-0.7%, -0.5px); }
+  50% { transform: translate(0.9%, 1.5px); }
 }
 @keyframes bubble-wobble {
   0%, 100% { transform: translateX(-1px); }
@@ -134,24 +187,99 @@ export default function TankEffects() {
       {/* main top-of-water glare: stays put, doesn't sway or drift */}
       <div className="absolute inset-x-0 top-0 h-2/5 bg-[radial-gradient(ellipse_60%_100%_at_50%_0%,rgba(243,236,221,0.22),transparent_70%)]" />
 
-      {/* light rays: two soft beams with a slow horizontal sway, as if
-          gently refracted by the moving water surface above. Shaped as
-          radial ellipses (not flat rectangles) so every edge feathers out
-          instead of leaving a hard seam against the surrounding water. */}
+      {/* Water-surface ripple: three soft horizontal highlight lines
+          confined to a thin band along the waterline. Each is a blurred,
+          edge-feathered gradient streak (transparent both ends, so there's
+          no straight/hard boundary anywhere), drifting a tiny amount
+          horizontally with a 1-2px vertical wobble on its own mismatched
+          timing — reads as gently moving water, not a wave. Sits in its own
+          overflow-hidden strip so the drift never pokes past that band into
+          the rest of the tank.
+          Positioned at top-[6%] rather than top-0: this waterBox wrapper's
+          own top edge (0%) matches water.png's alpha bounds exactly, but
+          tank.png's wood lid/rim art (painted on top of water.png) overlaps
+          roughly the first 4-5% of that fill — a top-0 band sat mostly on
+          the opaque lid. top-[6%] clears the lid by a small margin and
+          lands right on the water's own painted surface highlight, which
+          is where a waterline ripple visually belongs; an earlier pass at
+          top-[18%] cleared the lid too but sat well below the highlight,
+          reading as "too low" / detached from the waterline (down near the
+          plant tops). Confirmed empirically via a temporary full-width
+          debug marker at each candidate offset. */}
+      <div className="absolute inset-x-0 top-[6%] h-[14%] overflow-hidden">
+        <div
+          className="absolute inset-x-[-10%] top-[18%] h-[4px] blur-[1.5px] opacity-[0.28] motion-ambient"
+          style={{
+            background: 'linear-gradient(90deg, transparent 0%, rgba(243,236,221,0.6) 22%, rgba(243,236,221,1) 50%, rgba(243,236,221,0.6) 78%, transparent 100%)',
+            animation: 'ripple-drift-a 7s ease-in-out infinite',
+          }}
+        />
+        <div
+          className="absolute inset-x-[-10%] top-[42%] h-[3px] blur-[1.5px] opacity-[0.22] motion-ambient"
+          style={{
+            background: 'linear-gradient(90deg, transparent 0%, rgba(243,236,221,0.55) 25%, rgba(243,236,221,0.95) 55%, rgba(243,236,221,0.55) 80%, transparent 100%)',
+            animation: 'ripple-drift-b 9s ease-in-out infinite 1.2s',
+          }}
+        />
+        <div
+          className="absolute inset-x-[-10%] top-[70%] h-[4px] blur-[2px] opacity-[0.18] motion-ambient"
+          style={{
+            background: 'linear-gradient(90deg, transparent 0%, rgba(243,236,221,0.5) 20%, rgba(243,236,221,0.9) 45%, rgba(243,236,221,0.5) 75%, transparent 100%)',
+            animation: 'ripple-drift-c 11s ease-in-out infinite 2.6s',
+          }}
+        />
+      </div>
+
+      {/* Light rays: a fixed lid light, fanned into three overlapping soft
+          beams (slightly different widths/angles/heights so the fan reads
+          as full rather than three identical copies), each shaped as a
+          radial ellipse — not a flat rectangle — so every edge feathers
+          out instead of leaving a hard seam against the surrounding water.
+          Motion is intentionally tiny and layered: each beam only drifts a
+          couple of px left/right at a fixed angle (no swinging/sweeping),
+          plus its own slow, independent opacity pulse so parts of the fan
+          brighten and soften over time rather than the source itself
+          moving. Strongest right under the lid (origin-top, tallest/
+          brightest layer first) and fades naturally down through the
+          shorter/dimmer layers. */}
       <div
         className="absolute -top-6 left-[20%] h-2/3 w-[26%] origin-top blur-md motion-ambient"
         style={{
-          background: 'radial-gradient(ellipse 50% 100% at 50% 0%, rgba(243,236,221,0.22), transparent 72%)',
-          animation: 'ray-sway-a 8s ease-in-out infinite',
+          background: 'radial-gradient(ellipse 50% 100% at 50% 0%, rgba(243,236,221,1), transparent 72%)',
+          animation: 'ray-drift-a 9s ease-in-out infinite, ray-glow-a 6s ease-in-out infinite',
         }}
       />
       <div
         className="absolute -top-6 left-[52%] h-3/5 w-[22%] origin-top blur-md motion-ambient"
         style={{
-          background: 'radial-gradient(ellipse 50% 100% at 50% 0%, rgba(243,236,221,0.16), transparent 72%)',
-          animation: 'ray-sway-b 10s ease-in-out infinite',
+          background: 'radial-gradient(ellipse 50% 100% at 50% 0%, rgba(243,236,221,1), transparent 72%)',
+          animation: 'ray-drift-b 11s ease-in-out infinite 1.4s backwards, ray-glow-b 7.5s ease-in-out infinite 0.8s backwards',
         }}
       />
+      <div
+        className="absolute -top-6 left-[38%] h-[58%] w-[18%] origin-top blur-md motion-ambient"
+        style={{
+          background: 'radial-gradient(ellipse 50% 100% at 50% 0%, rgba(243,236,221,1), transparent 72%)',
+          animation: 'ray-drift-c 13s ease-in-out infinite 2.8s backwards, ray-glow-c 8.5s ease-in-out infinite 2s backwards',
+        }}
+      />
+      {/* Faint shimmer band: one soft streak that slowly travels across
+          the fan's own footprint only, as if the moving water surface is
+          briefly bending the lid light brighter along a narrow strip as
+          it passes. Clipped to an invisible (no fill/border of its own)
+          wrapper matching the fan's overall envelope so the streak's
+          translate never pokes past the fan into the rest of the tank —
+          same containment approach as the water-surface ripple band
+          above. */}
+      <div className="absolute -top-6 left-[20%] h-2/3 w-[54%] origin-top overflow-hidden">
+        <div
+          className="absolute inset-y-0 -left-1/3 w-1/3 blur-md motion-ambient"
+          style={{
+            background: 'linear-gradient(105deg, transparent 0%, rgba(243,236,221,0.3) 50%, transparent 100%)',
+            animation: 'ray-shimmer-travel 18s ease-in-out infinite',
+          }}
+        />
+      </div>
 
       {/* faint caustic/refraction overlay beneath the surface: two soft
           blobs on a slow drift, low opacity so it barely reads as movement */}

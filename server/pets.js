@@ -3,6 +3,13 @@
 // directly). Server-side only: the service-role key never leaves this file.
 const PET_TYPES = ['axolotl', 'betta', 'turtle']
 const MAX_PET_NAME_LENGTH = 20
+// No colour selection/randomization yet — every new pet gets its species'
+// single existing colour folder (see public/assets/<species>/<colour>/).
+const SPECIES_DEFAULT_COLOUR = {
+  axolotl: 'pink',
+  turtle: 'green',
+  betta: 'blue',
+}
 const DEFAULT_CARE_STATS = {
   hunger: 78,
   cleanliness: 86,
@@ -45,6 +52,10 @@ const ADMIN_PET_SELECT_WITH_PETTING = `discord_user_id,${BASE_PET_SELECT_WITH_PE
 const ADMIN_PET_SELECT_LEGACY = `discord_user_id,${BASE_PET_SELECT_LEGACY}`
 let hasLastPettedAtColumn = true
 let hasAffectionColumn = true
+// Independent of the petting/affection pair above — appended to whichever
+// select tier applies rather than multiplying the tier constants, since
+// colour has no ordering relationship with those columns.
+let hasColourColumn = true
 
 export function validatePetType(petType) {
   return typeof petType === 'string' && PET_TYPES.includes(petType)
@@ -73,14 +84,19 @@ function getPetsEndpointUrl(supabaseUrl) {
 }
 
 function getPetSelectClause({ includeDiscordUserId = false } = {}) {
+  let select
   if (includeDiscordUserId) {
-    if (hasLastPettedAtColumn && hasAffectionColumn) return ADMIN_PET_SELECT_WITH_PETTING_AND_AFFECTION
-    if (hasLastPettedAtColumn) return ADMIN_PET_SELECT_WITH_PETTING
-    return ADMIN_PET_SELECT_LEGACY
+    if (hasLastPettedAtColumn && hasAffectionColumn) select = ADMIN_PET_SELECT_WITH_PETTING_AND_AFFECTION
+    else if (hasLastPettedAtColumn) select = ADMIN_PET_SELECT_WITH_PETTING
+    else select = ADMIN_PET_SELECT_LEGACY
+  } else if (hasLastPettedAtColumn && hasAffectionColumn) {
+    select = BASE_PET_SELECT_WITH_PETTING_AND_AFFECTION
+  } else if (hasLastPettedAtColumn) {
+    select = BASE_PET_SELECT_WITH_PETTING
+  } else {
+    select = BASE_PET_SELECT_LEGACY
   }
-  if (hasLastPettedAtColumn && hasAffectionColumn) return BASE_PET_SELECT_WITH_PETTING_AND_AFFECTION
-  if (hasLastPettedAtColumn) return BASE_PET_SELECT_WITH_PETTING
-  return BASE_PET_SELECT_LEGACY
+  return hasColourColumn ? `${select},colour` : select
 }
 
 function buildPetsUrl({ supabaseUrl, discordUserId, select, limit, orderByCreatedAtDesc = false }) {
@@ -121,6 +137,10 @@ function toPet(row, { includeDiscordUserId = false } = {}) {
     cleanliness: normalizeCareValue(row.cleanliness, DEFAULT_CARE_STATS.cleanliness),
     happiness: normalizeCareValue(row.happiness, DEFAULT_CARE_STATS.happiness),
     affection: Number.isFinite(Number(row.affection)) ? Math.max(0, Math.trunc(Number(row.affection))) : 0,
+    // Falls back to the species default when the column is missing (migration
+    // not yet run) or a pre-migration row hasn't been backfilled, so older
+    // clients/rigs always get a renderable colour rather than null.
+    colour: row.colour ?? SPECIES_DEFAULT_COLOUR[row.pet_type] ?? null,
     lastFeedAt: row.last_feed_at ?? null,
     lastCleanAt: row.last_clean_at ?? null,
     lastPlayAt: row.last_play_at ?? null,
@@ -147,6 +167,10 @@ async function detectMissingOptionalColumns(response) {
   }
   if (hasAffectionColumn && bodyText.includes('affection')) {
     hasAffectionColumn = false
+    detectedMissingColumn = true
+  }
+  if (hasColourColumn && bodyText.includes('colour')) {
+    hasColourColumn = false
     detectedMissingColumn = true
   }
 
@@ -309,7 +333,15 @@ export async function createPetIfNotExists({ supabaseUrl, serviceRoleKey, discor
         'Content-Type': 'application/json',
         Prefer: 'return=representation',
       }),
-      body: JSON.stringify([{ discord_user_id: discordUserId, pet_type: petType, pet_name: petName }]),
+      body: JSON.stringify([{
+        discord_user_id: discordUserId,
+        pet_type: petType,
+        pet_name: petName,
+        // Omitted entirely (rather than sent as null) once the column is
+        // known missing, so a retry after detectMissingOptionalColumns
+        // flips the flag doesn't just fail the same way again.
+        ...(hasColourColumn ? { colour: SPECIES_DEFAULT_COLOUR[petType] } : {}),
+      }]),
     })
 
     if (response.status === 409) {

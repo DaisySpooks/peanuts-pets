@@ -1,26 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useIdleBlink } from './useIdleBlink.js'
+import { petAssetPath } from './petAssetPath.js'
 
-// Turtle's full-face expression-swap rig: there is no neutral head-base +
-// separate eyes/mouth overlay pattern here (unlike axolotl/betta) — each
-// face-*.png is a complete expression, layered once on top of shell/head.
-// Confirmed by diffing face-idle.png against face-eating.png: they differ
-// across nearly the whole face bbox, not just a small mouth region, so
-// there is no isolated mouth/eye sub-asset to swap independently.
+// Turtle's split-face rig: a plain `head` base with separate eyes/mouth
+// layers on top, same pattern as the axolotl/betta rigs.
 // Only flipper-back-right/-front-left/-front-right exist (no
 // flipper-back-left), so that is simply omitted rather than invented.
 const BASE_LAYERS = ['flipper-back-right', 'flipper-front-left', 'shell', 'head', 'flipper-front-right']
-
-// Blink: swaps to `face-sleepy` since there is no separate eye layer to
-// blink in isolation. This is inherently riskier than a real
-// eyes-open/eyes-closed swap: `face-sleepy` is a full alternate expression,
-// not a fast eye-close, and it already carries its own meaning as the
-// genuine low-energy state. At the shared 120-180ms duration this read as a
-// brief mood change rather than a blink, so it's shortened well below that
-// (see TURTLE_BLINK_MIN/MAX_DURATION_MS below) — closer to the fastest part
-// of a real blink, so the sleepy face flashes and clears before it
-// registers as a distinct expression. Gated off during eating/play so it
-// can never override those expressions.
 
 // Gentle flipper motion. Reuses the existing generic wobble keyframes
 // (gill-drift-* / limb-float-*, already registered in tailwind.config.js
@@ -54,7 +40,7 @@ const HAPPY_HAPPINESS_THRESHOLD = 85
 // (PELLET_DURATION_MS / EATING_START_MS / EATING_END_MS) and is unchanged.
 // The shared `isEating` signal turns on before the (turtle-specific,
 // re-paced) pellet path is actually near the mouth, so this delays
-// face-eating's onset by a small local amount to match, and still holds it
+// mouth-eating's onset by a small local amount to match, and still holds it
 // a little past the shared window so it stays visible through arrival and
 // closes shortly after — all local to this rig only, same idea as betta's
 // hold but with an added onset delay tuned to turtle's own pellet timing.
@@ -63,7 +49,7 @@ const EATING_HOLD_EXTRA_MS = 250
 // Shared feed timing starts `isEating` at ~1296ms into the 1800ms feed.
 // Turtle's pellet path reaches its mouth endpoint at the end of that path,
 // so the visible "shut" chomp should begin ~504ms after `isEating` turns on
-// (1296ms + 504ms = 1800ms total), not when face-eating first appears.
+// (1296ms + 504ms = 1800ms total), not when mouth-eating first appears.
 const CHOMP_TRIGGER_DELAY_MS = 504
 const CHOMP_DURATION_MS = 165
 const IDLE_ANIMATION_MIN_INTERVAL_MS = 20000
@@ -75,10 +61,11 @@ const PETTING_REACTION_DURATION_MS = 700
 const PETTING_INVITE_MIN_INTERVAL_MS = 15000
 const PETTING_INVITE_MAX_INTERVAL_MS = 20000
 const PETTING_INVITE_DURATION_MS = 1100
-// Shorter/softer than useIdleBlink's shared 120-180ms default — see the
-// blink comment above BASE_LAYERS for why turtle needs its own range.
+// Quicker close-eye hold than useIdleBlink's shared 120-180ms default —
+// requested to make the turtle's blink read as snappier now that it has its
+// own real eyes-open/eyes-closed art.
 const TURTLE_BLINK_MIN_DURATION_MS = 80
-const TURTLE_BLINK_MAX_DURATION_MS = 110
+const TURTLE_BLINK_MAX_DURATION_MS = 120
 
 function randomBetween(min, max) {
   return min + Math.random() * (max - min)
@@ -118,29 +105,28 @@ function useEatingWindow(isEating) {
   return held
 }
 
-function getTurtleFace(mood, stats, isEating, isPlaying) {
-  if (isEating) return 'face-eating'
-  if (isPlaying) return 'face-happy'
+function getTurtleFaceState(mood, stats, isEating, isPlaying) {
+  if (isEating) return { eyes: 'eyes-open', mouth: 'mouth-eating', canBlink: false }
+  if (isPlaying) return { eyes: 'eyes-open', mouth: 'mouth-happy', canBlink: true }
 
   const happiness = typeof stats.happiness === 'number' ? stats.happiness : null
   const isSleepy = mood === 'sleepy' || mood === 'tired' || mood === 'resting'
     || (happiness !== null && happiness <= SLEEPY_HAPPINESS_THRESHOLD)
-  if (isSleepy) return 'face-sleepy'
+  if (isSleepy) return { eyes: 'eyes-closed', mouth: 'mouth-sleepy', canBlink: false }
 
   const isHappy = mood === 'happy' && happiness !== null && happiness >= HAPPY_HAPPINESS_THRESHOLD
-  if (isHappy) return 'face-happy'
+  if (isHappy) return { eyes: 'eyes-open', mouth: 'mouth-happy', canBlink: true }
 
-  return 'face-idle'
+  return { eyes: 'eyes-open', mouth: 'mouth-idle', canBlink: true }
 }
 
 // Turtle-specific food path and play bounce, scoped entirely to this file
 // via an inline <style> tag rather than the shared `pellet-drop` keyframe
 // in tailwind.config.js (tuned for the axolotl's mouth; must stay untouched
 // for axolotl/betta). Turtle's mouth is estimated at ~16%,46% of its own
-// canvas — face-idle vs face-eating differ across the whole face art (no
-// isolated mouth region to measure), so this is an anatomical estimate
-// (front/lower part of the face) rather than a pixel-measured target, and
-// may need a small follow-up correction once seen rendered.
+// canvas — an anatomical estimate (front/lower part of the face) rather
+// than a pixel-measured target, and may need a small follow-up correction
+// once seen rendered.
 const TURTLE_KEYFRAMES = `
 @keyframes turtle-pellet-drop {
   0% { left: 22%; top: 3%; opacity: 0; transform: scale(0.5); }
@@ -229,10 +215,11 @@ export default function TurtleRig({
   isCleaning = false,
   onPetPersist,
   name,
+  colour = null,
 }) {
   const bob = mood === 'happy' ? 'animate-pet-bob motion-ambient' : ''
   const isEatingHeld = useEatingWindow(isEating)
-  const face = getTurtleFace(mood, stats, isEatingHeld, isPlaying)
+  const face = getTurtleFaceState(mood, stats, isEatingHeld, isPlaying)
   const [isChomping, setIsChomping] = useState(false)
   const chompStartTimeoutRef = useRef(null)
   const chompEndTimeoutRef = useRef(null)
@@ -413,8 +400,11 @@ export default function TurtleRig({
     minDurationMs: TURTLE_BLINK_MIN_DURATION_MS,
     maxDurationMs: TURTLE_BLINK_MAX_DURATION_MS,
   })
-  const displayFace = isPetting ? 'face-happy' : isChomping ? 'face-sleepy' : isBlinking ? 'face-sleepy' : face
-  const layers = [...BASE_LAYERS, displayFace]
+  const eyes = isChomping ? 'eyes-closed' : isBlinking ? 'eyes-closed' : face.eyes
+  const mouth = isChomping ? 'mouth-idle' : face.mouth
+  const pettingEyes = isPetting ? 'eyes-closed' : eyes
+  const pettingMouth = isPetting ? 'mouth-happy' : mouth
+  const layers = [...BASE_LAYERS, pettingEyes, pettingMouth]
 
   function getIdleWrapperStyle(layer) {
     if (activeIdleAnimation === 'flipper-stretch' && layer === 'flipper-front-right') {
@@ -424,7 +414,7 @@ export default function TurtleRig({
       }
     }
 
-    if (activeIdleAnimation === 'head-tilt' && (layer === 'head' || layer === displayFace)) {
+    if (activeIdleAnimation === 'head-tilt' && (layer === 'head' || layer === eyes || layer === mouth)) {
       return {
         transformOrigin: '42% 58%',
         animation: `turtle-idle-head-tilt ${IDLE_ANIMATION_HEAD_DURATION_MS}ms ease-in-out 1`,
@@ -437,7 +427,7 @@ export default function TurtleRig({
   function getPettingWrapperStyle(layer) {
     if (!isPetting) return { transform: 'translate(0, 0) rotate(0deg)' }
 
-    if (layer === 'head' || layer === displayFace) {
+    if (layer === 'head' || layer === pettingEyes || layer === pettingMouth) {
       return {
         transformOrigin: '42% 58%',
         animation: `turtle-petting-head-lift ${PETTING_REACTION_DURATION_MS}ms ease-out 1`,
@@ -508,7 +498,7 @@ export default function TurtleRig({
             style={{ zIndex: index, ...getPettingWrapperStyle(layer), ...getIdleWrapperStyle(layer) }}
           >
             <img
-              src={`/assets/turtle/${layer}.png`}
+              src={petAssetPath('turtle', layer, colour)}
               alt=""
               className="absolute inset-0 h-full w-full motion-ambient"
               style={flipperLayerStyle(layer, idleLoopDelays[layer] ?? 0)}
