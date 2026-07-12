@@ -51,6 +51,8 @@ function getPetStatusText({ isFeeding, isCleaning, isPlaying, stats }) {
 
 export default function HabitatScreen({ pet, petType, stats, actions, onActionPersist, onPetPersist }) {
   const statsForMood = Object.fromEntries(stats.map((s) => [s.key, s.value]))
+  const careStats = stats.filter((stat) => stat.key !== 'affection')
+  const affectionStat = stats.find((stat) => stat.key === 'affection') ?? null
   const [isFeeding, setIsFeeding] = useState(false)
   const [isEating, setIsEating] = useState(false)
   const [feedTrigger, setFeedTrigger] = useState(0)
@@ -155,14 +157,9 @@ export default function HabitatScreen({ pet, petType, stats, actions, onActionPe
         </header>
 
         <main
-          className="flex flex-1 flex-col gap-3 md:grid md:min-h-0 md:gap-3"
-          style={{
-            gridTemplateColumns: '1fr 1fr',
-            gridTemplateRows: 'minmax(0, 1fr) auto auto',
-            gridTemplateAreas: "'tank tank' 'mood mood' 'stats actions'",
-          }}
+          className="flex flex-1 flex-col gap-3 md:min-h-0 md:gap-3"
         >
-          <div className="relative flex-none md:h-full md:min-h-0" style={{ gridArea: 'tank' }}>
+          <div className="relative flex-none md:min-h-0 md:flex-1">
             {/* Grounded shadow + ambient glow behind the aquarium — purely
                 decorative, absolutely positioned so it never affects layout
                 sizing, clipped to nothing so it can bleed past the tank's
@@ -192,19 +189,20 @@ export default function HabitatScreen({ pet, petType, stats, actions, onActionPe
             />
           </div>
 
-          <div
-            className="group relative flex-none overflow-hidden rounded-2xl border border-gold/20 bg-gradient-to-b from-[#221c15] via-[#191410] to-[#14100c] p-4 shadow-[0_14px_28px_-14px_rgba(10,6,2,0.65),inset_0_1px_0_rgba(255,224,170,0.08)] transition-transform duration-300 ease-out hover:-translate-y-px"
-            style={{ gridArea: 'mood' }}
-          >
+          <div className="md:hidden">
             <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 opacity-[0.04] mix-blend-overlay"
-              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
-            />
-            <p role="status" className="relative text-sm leading-relaxed text-cream/80">{statusText}</p>
+              className="group relative flex-none overflow-hidden rounded-2xl border border-gold/20 bg-gradient-to-b from-[#221c15] via-[#191410] to-[#14100c] p-4 shadow-[0_14px_28px_-14px_rgba(10,6,2,0.65),inset_0_1px_0_rgba(255,224,170,0.08)] transition-transform duration-300 ease-out hover:-translate-y-px"
+            >
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 opacity-[0.04] mix-blend-overlay"
+                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
+              />
+              <p role="status" className="relative text-sm leading-relaxed text-cream/80">{statusText}</p>
+            </div>
           </div>
 
-          <div className="flex-none" style={{ gridArea: 'actions' }}>
+          <div className="md:hidden">
             <ActionCard
               actions={actions}
               onAction={handleAction}
@@ -218,8 +216,56 @@ export default function HabitatScreen({ pet, petType, stats, actions, onActionPe
             ) : null}
           </div>
 
-          <div className="flex-none" style={{ gridArea: 'stats' }}>
+          <div className="md:hidden">
             <StatBar stats={stats} />
+          </div>
+
+          <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-stretch md:gap-3">
+            <div className="min-w-0">
+              <StatBar stats={careStats} />
+            </div>
+
+            <div className="flex min-w-0 flex-col gap-2">
+              <div>
+                <ActionCard
+                  actions={actions}
+                  onAction={handleAction}
+                  activeKey={activeActionKey}
+                  pendingKey={pendingAction}
+                  moodText={statusText}
+                />
+                {actionError ? (
+                  <p className="mt-2 px-1 text-xs text-cream/50" role="status">
+                    {actionError}
+                  </p>
+                ) : null}
+              </div>
+
+              {affectionStat ? (
+                <div className="relative flex flex-1 flex-col justify-center overflow-hidden rounded-2xl border border-[#d88ba0]/25 bg-[linear-gradient(180deg,rgba(57,23,31,0.92),rgba(34,16,24,0.9))] px-4 py-3 shadow-[0_16px_30px_-18px_rgba(10,6,2,0.72),inset_0_1px_0_rgba(255,216,228,0.08)]">
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 opacity-[0.05] mix-blend-overlay"
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
+                  />
+                  <div className="relative flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-2 text-sm font-semibold text-[#ffe4eb]">
+                        <span
+                          aria-hidden="true"
+                          className="flex h-6 w-6 items-center justify-center rounded-full border border-[#f0a9bb]/35 bg-black/20 text-sm leading-none shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]"
+                        >
+                          💗
+                        </span>
+                        Affection
+                      </p>
+                      <p className="mt-1 text-xs text-[#f4c1cf]/85">Growing closer</p>
+                    </div>
+                    <p className="shrink-0 text-xl font-semibold tabular-nums text-[#ffd5df]">{affectionStat.value}</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         </main>
       </div>

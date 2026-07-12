@@ -34,13 +34,17 @@ const PET_ACTIONS = {
   clean: { statKey: 'cleanliness', delta: 25, columnTimestampKey: 'last_clean_at', petTimestampKey: 'lastCleanAt', cooldownMs: 3 * 60 * 60 * 1000 },
   play: { statKey: 'happiness', delta: 25, columnTimestampKey: 'last_play_at', petTimestampKey: 'lastPlayAt', cooldownMs: 4 * 60 * 60 * 1000 },
 }
+const BASE_PET_SELECT_WITH_PETTING_AND_AFFECTION =
+  'pet_type,pet_name,created_at,hunger,cleanliness,happiness,affection,last_feed_at,last_clean_at,last_play_at,last_petted_at,updated_at,last_decay_at'
 const BASE_PET_SELECT_WITH_PETTING =
   'pet_type,pet_name,created_at,hunger,cleanliness,happiness,last_feed_at,last_clean_at,last_play_at,last_petted_at,updated_at,last_decay_at'
 const BASE_PET_SELECT_LEGACY =
   'pet_type,pet_name,created_at,hunger,cleanliness,happiness,last_feed_at,last_clean_at,last_play_at,updated_at,last_decay_at'
+const ADMIN_PET_SELECT_WITH_PETTING_AND_AFFECTION = `discord_user_id,${BASE_PET_SELECT_WITH_PETTING_AND_AFFECTION}`
 const ADMIN_PET_SELECT_WITH_PETTING = `discord_user_id,${BASE_PET_SELECT_WITH_PETTING}`
 const ADMIN_PET_SELECT_LEGACY = `discord_user_id,${BASE_PET_SELECT_LEGACY}`
 let hasLastPettedAtColumn = true
+let hasAffectionColumn = true
 
 export function validatePetType(petType) {
   return typeof petType === 'string' && PET_TYPES.includes(petType)
@@ -70,9 +74,13 @@ function getPetsEndpointUrl(supabaseUrl) {
 
 function getPetSelectClause({ includeDiscordUserId = false } = {}) {
   if (includeDiscordUserId) {
-    return hasLastPettedAtColumn ? ADMIN_PET_SELECT_WITH_PETTING : ADMIN_PET_SELECT_LEGACY
+    if (hasLastPettedAtColumn && hasAffectionColumn) return ADMIN_PET_SELECT_WITH_PETTING_AND_AFFECTION
+    if (hasLastPettedAtColumn) return ADMIN_PET_SELECT_WITH_PETTING
+    return ADMIN_PET_SELECT_LEGACY
   }
-  return hasLastPettedAtColumn ? BASE_PET_SELECT_WITH_PETTING : BASE_PET_SELECT_LEGACY
+  if (hasLastPettedAtColumn && hasAffectionColumn) return BASE_PET_SELECT_WITH_PETTING_AND_AFFECTION
+  if (hasLastPettedAtColumn) return BASE_PET_SELECT_WITH_PETTING
+  return BASE_PET_SELECT_LEGACY
 }
 
 function buildPetsUrl({ supabaseUrl, discordUserId, select, limit, orderByCreatedAtDesc = false }) {
@@ -112,6 +120,7 @@ function toPet(row, { includeDiscordUserId = false } = {}) {
     hunger: normalizeCareValue(row.hunger, DEFAULT_CARE_STATS.hunger),
     cleanliness: normalizeCareValue(row.cleanliness, DEFAULT_CARE_STATS.cleanliness),
     happiness: normalizeCareValue(row.happiness, DEFAULT_CARE_STATS.happiness),
+    affection: Number.isFinite(Number(row.affection)) ? Math.max(0, Math.trunc(Number(row.affection))) : 0,
     lastFeedAt: row.last_feed_at ?? null,
     lastCleanAt: row.last_clean_at ?? null,
     lastPlayAt: row.last_play_at ?? null,
@@ -127,14 +136,21 @@ function toPet(row, { includeDiscordUserId = false } = {}) {
   return pet
 }
 
-async function isMissingLastPettedAtColumnResponse(response) {
-  if (response.status !== 400 || !hasLastPettedAtColumn) return false
-
+async function detectMissingOptionalColumns(response) {
+  if (response.status !== 400) return false
   const bodyText = await response.text()
-  if (!bodyText.includes('last_petted_at')) return false
+  let detectedMissingColumn = false
 
-  hasLastPettedAtColumn = false
-  return true
+  if (hasLastPettedAtColumn && bodyText.includes('last_petted_at')) {
+    hasLastPettedAtColumn = false
+    detectedMissingColumn = true
+  }
+  if (hasAffectionColumn && bodyText.includes('affection')) {
+    hasAffectionColumn = false
+    detectedMissingColumn = true
+  }
+
+  return detectedMissingColumn
 }
 
 // Rounds the fractional stat values for client display only — the stored
@@ -147,6 +163,7 @@ export function toDisplayPet(pet) {
     hunger: Math.round(pet.hunger),
     cleanliness: Math.round(pet.cleanliness),
     happiness: Math.round(pet.happiness),
+    affection: Math.max(0, Math.trunc(pet.affection ?? 0)),
   }
 }
 
@@ -186,7 +203,7 @@ async function patchPetByDiscordUserId({ supabaseUrl, serviceRoleKey, discordUse
     })
 
     if (!response.ok) {
-      if (await isMissingLastPettedAtColumnResponse(response)) {
+      if (await detectMissingOptionalColumns(response)) {
         continue
       }
       throw new Error(`supabase_pets_patch_failed_${response.status}`)
@@ -258,7 +275,7 @@ export async function getPetByDiscordUserId({ supabaseUrl, serviceRoleKey, disco
 
     const response = await fetch(url, { headers: restHeaders(serviceRoleKey) })
     if (!response.ok) {
-      if (await isMissingLastPettedAtColumnResponse(response)) {
+      if (await detectMissingOptionalColumns(response)) {
         continue
       }
       throw new Error(`supabase_pets_lookup_failed_${response.status}`)
@@ -304,7 +321,7 @@ export async function createPetIfNotExists({ supabaseUrl, serviceRoleKey, discor
     }
 
     if (!response.ok) {
-      if (await isMissingLastPettedAtColumnResponse(response)) {
+      if (await detectMissingOptionalColumns(response)) {
         const current = await getPetByDiscordUserId({ supabaseUrl, serviceRoleKey, discordUserId })
         if (current) return current
         continue
@@ -353,7 +370,7 @@ export async function applyPettingInteraction({ supabaseUrl, serviceRoleKey, dis
   const existing = await getPetByDiscordUserId({ supabaseUrl, serviceRoleKey, discordUserId })
   if (!existing) return null
 
-  if (!hasLastPettedAtColumn) {
+  if (!hasLastPettedAtColumn || !hasAffectionColumn) {
     const error = new Error('petting_schema_missing')
     error.code = 'petting_schema_missing'
     throw error
@@ -383,6 +400,7 @@ export async function applyPettingInteraction({ supabaseUrl, serviceRoleKey, dis
       Prefer: 'return=representation',
     }),
     body: JSON.stringify({
+      affection: existing.affection + 1,
       last_petted_at: now,
       updated_at: now,
     }),
@@ -414,7 +432,7 @@ export async function getPetSummary({ supabaseUrl, serviceRoleKey, recentLimit =
 
     const response = await fetch(url, { headers: restHeaders(serviceRoleKey) })
     if (!response.ok) {
-      if (await isMissingLastPettedAtColumnResponse(response)) {
+      if (await detectMissingOptionalColumns(response)) {
         continue
       }
       throw new Error(`supabase_pets_summary_failed_${response.status}`)
@@ -458,7 +476,7 @@ export async function listPets({ supabaseUrl, serviceRoleKey, discordUserId, lim
 
     const response = await fetch(url, { headers: restHeaders(serviceRoleKey) })
     if (!response.ok) {
-      if (await isMissingLastPettedAtColumnResponse(response)) {
+      if (await detectMissingOptionalColumns(response)) {
         continue
       }
       throw new Error(`supabase_pets_list_failed_${response.status}`)
@@ -483,6 +501,7 @@ export async function updatePetForAdmin({
   petName,
   statPreset,
   clearActionTimestamps = false,
+  resetAffection = false,
   simulateElapsedHours,
 }) {
   const existing = await getPetByDiscordUserId({ supabaseUrl, serviceRoleKey, discordUserId })
@@ -519,6 +538,10 @@ export async function updatePetForAdmin({
     payload.last_feed_at = null
     payload.last_clean_at = null
     payload.last_play_at = null
+  }
+
+  if (resetAffection) {
+    payload.affection = 0
   }
 
   // Admin-only decay test aid: backdate `last_decay_at` so the next load
@@ -562,6 +585,7 @@ export async function resetPetCooldownsForAdmin({ supabaseUrl, serviceRoleKey, d
       last_feed_at: null,
       last_clean_at: null,
       last_play_at: null,
+      last_petted_at: null,
       updated_at: new Date().toISOString(),
     },
   })

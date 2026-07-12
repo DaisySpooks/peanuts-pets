@@ -486,6 +486,7 @@ app.post('/api/admin/my-pet/update', accessRateLimiter, requireAdminAccess, asyn
       petName: req.body?.name,
       statPreset: req.body?.statPreset,
       clearActionTimestamps: req.body?.clearActionTimestamps === true,
+      resetAffection: req.body?.resetAffection === true,
       simulateElapsedHours: req.body?.simulateElapsedHours !== undefined
         ? Number(req.body.simulateElapsedHours)
         : undefined,

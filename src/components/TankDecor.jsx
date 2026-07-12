@@ -36,9 +36,28 @@ const CONTACT_SHADOW_CLASSNAME = 'absolute rounded-full bg-[#1c1006]/25 blur-[3p
 // and flipper wobbles. Distinct durations/delays/amplitudes per plant so
 // they drift out of phase with each other, like independent stalks in a
 // slow current rather than one rigid gust.
+//
+// The right plant's positive delay (staggering it out of phase with the
+// left one) leaves a window before the animation actually starts. Without
+// `backwards`, the element sits untransformed (`transform: none`) for that
+// whole window and then snaps straight to the 0% keyframe the instant the
+// delay elapses — a one-frame jerk on first activation. `restTransform`
+// (equal to the 0% keyframe) plus the `backwards` fill-mode both pin the
+// element to that exact pose for the entire pre-start window, so there's
+// nothing to snap from.
 const PLANTS = [
-  { file: 'plants-left.png', originPct: '18.9% 79%', animation: 'plant-sway-left 5.5s ease-in-out 0s infinite' },
-  { file: 'plants-right.png', originPct: '81.7% 77.6%', animation: 'plant-sway-right 6.5s ease-in-out 1s infinite' },
+  {
+    file: 'plants-left.png',
+    originPct: '18.9% 79%',
+    restTransform: 'rotate(-0.6deg) translateX(-0.3px)',
+    animation: 'plant-sway-left 5.5s ease-in-out 0s infinite backwards',
+  },
+  {
+    file: 'plants-right.png',
+    originPct: '81.7% 77.6%',
+    restTransform: 'rotate(0.8deg) translateX(0.35px)',
+    animation: 'plant-sway-right 6.5s ease-in-out 1s infinite backwards',
+  },
 ]
 
 const PLANT_SWAY_KEYFRAMES = `
@@ -110,7 +129,7 @@ export default function TankDecor() {
           <div
             key={plant.file}
             className="absolute inset-0"
-            style={{ transformOrigin: plant.originPct, animation: plant.animation }}
+            style={{ transformOrigin: plant.originPct, transform: plant.restTransform, animation: plant.animation }}
           >
             <img
               src={`/assets/peanuts-pets-tank/${plant.file}`}

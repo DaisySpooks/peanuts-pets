@@ -40,6 +40,7 @@ function buildHabitatStats(pet) {
     hunger: pet?.hunger,
     cleanliness: pet?.cleanliness,
     happiness: pet?.happiness,
+    affection: pet?.affection,
   }
 
   return defaultStats.map((stat) => ({

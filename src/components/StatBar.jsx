@@ -6,6 +6,7 @@ const STAT_ICONS = {
   hunger: '🍖',
   cleanliness: '🫧',
   happiness: '💛',
+  affection: '💗',
 }
 
 export default function StatBar({ stats }) {
@@ -27,30 +28,49 @@ export default function StatBar({ stats }) {
         {stats.map((stat) => (
           <div
             key={stat.key}
-            className="flex flex-col gap-1.5 rounded-lg bg-[#241a10]/70 px-2.5 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.45)]"
+            className={`flex flex-col gap-1.5 rounded-lg px-2.5 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.45)] ${
+              stat.key === 'affection'
+                ? 'border border-[#d88ba0]/20 bg-[linear-gradient(180deg,rgba(57,23,31,0.92),rgba(34,16,24,0.9))]'
+                : 'bg-[#241a10]/70'
+            }`}
           >
             <div className="flex items-baseline justify-between text-sm">
               <span className="flex items-center gap-2 text-cream/95">
                 <span
                   aria-hidden="true"
-                  className="flex h-5 w-5 items-center justify-center rounded-full border border-[#c9a44c]/30 bg-black/30 text-xs leading-none shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]"
+                  className={`flex h-5 w-5 items-center justify-center rounded-full border bg-black/30 text-xs leading-none shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)] ${
+                    stat.key === 'affection' ? 'border-[#f0a9bb]/35' : 'border-[#c9a44c]/30'
+                  }`}
                 >
                   {STAT_ICONS[stat.key] || '⭐'}
                 </span>
                 {stat.label}
+                {stat.key === 'affection' ? (
+                  <span className="rounded-full border border-[#f0a9bb]/25 bg-[#f0a9bb]/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#f4c1cf]">
+                    Bond
+                  </span>
+                ) : null}
               </span>
-              <span className="tabular-nums text-[#e6c48f]">{stat.value}</span>
+              <span className={`tabular-nums ${stat.key === 'affection' ? 'text-[#ffd5df]' : 'text-[#e6c48f]'}`}>{stat.value}</span>
             </div>
-            <div className="h-3 w-full overflow-hidden rounded-full border border-black/60 bg-[#120c07] shadow-[inset_0_2px_4px_rgba(0,0,0,0.85)]">
-              <div
-                className="relative h-full overflow-hidden rounded-full bg-gradient-to-r from-[#7a531c] via-[#cf9c4d] to-[#f9dc9c] shadow-[inset_0_1px_2px_rgba(255,240,205,0.5),inset_0_-2px_3px_rgba(70,42,10,0.55)] transition-[width] duration-200 ease-out"
-                style={{ width: `${stat.value}%` }}
-              >
-                <div className="absolute inset-x-0 top-0 h-1/2 rounded-t-full bg-gradient-to-b from-white/45 to-transparent" />
-                <div className="absolute inset-y-0 right-0 w-1.5 rounded-full bg-white/30 blur-[1px]" />
-                <div className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -skew-x-[20deg] bg-gradient-to-r from-transparent via-white/60 to-transparent animate-bar-sheen" />
+            {stat.key === 'affection' ? (
+              <div className="relative h-3 w-full overflow-hidden rounded-full border border-[#120c07] bg-[#140b10] shadow-[inset_0_2px_4px_rgba(0,0,0,0.85)]">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_50%,rgba(255,205,219,0.16),transparent_22%),radial-gradient(circle_at_50%_50%,rgba(255,183,203,0.14),transparent_18%),radial-gradient(circle_at_82%_50%,rgba(255,205,219,0.16),transparent_22%)] opacity-80" />
+                <div className="absolute inset-y-[2px] left-2 right-2 rounded-full bg-gradient-to-r from-[#5f2736] via-[#b85f78] to-[#f0a9bb] opacity-75" />
+                <div className="absolute inset-y-0 left-0 w-1/3 -skew-x-[20deg] bg-gradient-to-r from-transparent via-white/45 to-transparent animate-bar-sheen" />
               </div>
-            </div>
+            ) : (
+              <div className="h-3 w-full overflow-hidden rounded-full border border-black/60 bg-[#120c07] shadow-[inset_0_2px_4px_rgba(0,0,0,0.85)]">
+                <div
+                  className="relative h-full overflow-hidden rounded-full bg-gradient-to-r from-[#7a531c] via-[#cf9c4d] to-[#f9dc9c] shadow-[inset_0_1px_2px_rgba(255,240,205,0.5),inset_0_-2px_3px_rgba(70,42,10,0.55)] transition-[width] duration-200 ease-out"
+                  style={{ width: `${stat.value}%` }}
+                >
+                  <div className="absolute inset-x-0 top-0 h-1/2 rounded-t-full bg-gradient-to-b from-white/45 to-transparent" />
+                  <div className="absolute inset-y-0 right-0 w-1.5 rounded-full bg-white/30 blur-[1px]" />
+                  <div className="pointer-events-none absolute inset-y-0 left-0 w-1/3 -skew-x-[20deg] bg-gradient-to-r from-transparent via-white/60 to-transparent animate-bar-sheen" />
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -172,9 +172,13 @@ export default function AdminScreen({ currentDiscordUserId, myPet, onMyPetChange
   }
 
   const handleClearTimestamps = async () => {
-    await applyPetUpdate('Cleared action timestamps and made care actions available.', () =>
+    await applyPetUpdate('Cleared action and petting timestamps and made them available.', () =>
       resetMyPetCooldowns(),
     )
+  }
+
+  const handleResetAffection = async () => {
+    await applyPetUpdate('Reset affection to 0.', () => updateMyPetAdmin({ resetAffection: true }))
   }
 
   const handleSimulateElapsed = async (event) => {
@@ -444,6 +448,14 @@ export default function AdminScreen({ currentDiscordUserId, myPet, onMyPetChange
                       >
                         Clear action timestamps
                       </button>
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={handleResetAffection}
+                        className="rounded-xl border border-cream/15 bg-cream/[0.03] px-4 py-3 text-sm text-cream transition hover:border-gold/40 hover:bg-cream/[0.06]"
+                      >
+                        Reset affection
+                      </button>
                     </div>
 
                     <form onSubmit={handleSimulateElapsed} className="mt-5 flex flex-wrap items-end gap-3">
@@ -474,6 +486,8 @@ export default function AdminScreen({ currentDiscordUserId, myPet, onMyPetChange
                       <p className="mt-2">Feed available after: {formatTimestamp(myPet.lastFeedAt)}</p>
                       <p>Clean available after: {formatTimestamp(myPet.lastCleanAt)}</p>
                       <p>Play available after: {formatTimestamp(myPet.lastPlayAt)}</p>
+                      <p>Petting available after: {formatTimestamp(myPet.lastPettedAt)}</p>
+                      <p className="mt-2">Affection: {myPet.affection}</p>
                     </div>
 
                     <button

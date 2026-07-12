@@ -7,6 +7,7 @@ export const defaultStats = [
   { key: 'hunger', label: 'Hunger', value: 78 },
   { key: 'cleanliness', label: 'Cleanliness', value: 86 },
   { key: 'happiness', label: 'Happiness', value: 92 },
+  { key: 'affection', label: 'Affection', value: 0 },
 ]
 
 export const actions = [

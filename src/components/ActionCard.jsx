@@ -8,7 +8,7 @@ const ACTION_ICONS = {
   play: '🎾',
 }
 
-export default function ActionCard({ actions, onAction, activeKey, pendingKey }) {
+export default function ActionCard({ actions, onAction, activeKey, pendingKey, moodText }) {
   return (
     <div className="group relative overflow-hidden rounded-2xl border-2 border-[#7a4f22] bg-gradient-to-b from-[#5f4a34] via-[#42321f] to-[#2c2014] p-4 shadow-[0_22px_44px_-16px_rgba(10,6,2,0.75),0_8px_16px_-6px_rgba(10,6,2,0.6),inset_0_1px_0_rgba(255,224,170,0.16),inset_0_-3px_6px_rgba(0,0,0,0.45)] ring-1 ring-inset ring-[#c9a44c]/15 transition-transform duration-300 ease-out hover:-translate-y-px">
       <div
@@ -17,6 +17,21 @@ export default function ActionCard({ actions, onAction, activeKey, pendingKey })
         style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
       />
       <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#f5d38f]/60 to-transparent" />
+      {moodText ? (
+        <>
+          <div className="relative -mx-1 mb-0.5 flex items-center justify-center gap-2 rounded-lg border border-[#a97845]/25 bg-black/20 px-3 py-1.5 text-center shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]">
+            <span aria-hidden="true" className="text-[10px] text-[#d4a45a]">✦</span>
+            <span
+              aria-hidden="true"
+              className="flex h-4 w-4 items-center justify-center rounded-full border border-[#a97845]/45 bg-black/15 text-[10px] leading-none text-[#f0c988] shadow-[inset_0_1px_1px_rgba(255,236,200,0.12)]"
+            >
+              ☺
+            </span>
+            <p role="status" className="truncate text-xs leading-none text-cream/80">{moodText}</p>
+            <span aria-hidden="true" className="text-[10px] text-[#d4a45a]">✦</span>
+          </div>
+        </>
+      ) : null}
       <h2 className="mb-2 flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-[#f5d38f] [text-shadow:0_1px_1px_rgba(0,0,0,0.5),0_0_10px_rgba(240,200,120,0.15)]">
         <span aria-hidden="true" className="text-[#c9a44c]/70">✦</span>
         Care Actions
