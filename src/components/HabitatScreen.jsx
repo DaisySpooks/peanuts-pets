@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import TankStage from './TankStage.jsx'
 import StatBar from './StatBar.jsx'
 import ActionCard from './ActionCard.jsx'
-import PetIdentityCard from './PetIdentityCard.jsx'
+import PetIdentityCard, { MobilePetIdentityCard } from './PetIdentityCard.jsx'
 
 // Pellet sinks toward the mouth over this long (matches the pellet-drop
 // animation duration in tailwind.config.js); mouth-eating only kicks in
@@ -155,19 +155,15 @@ export default function HabitatScreen({ pet, petType, colour, stats, actions, on
         </svg>
       </div>
       <div className="relative z-10 mx-auto flex h-full max-w-6xl flex-col gap-3 px-4 py-4 md:gap-3 md:py-5">
-        <header className="flex flex-none items-center justify-between md:hidden">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-gold/70">Peanut&rsquo;s Pets</p>
-            <h1 className="text-xl font-semibold text-cream md:text-2xl">{pet.name}</h1>
-            <p className="text-sm text-cream/50">{pet.species}</p>
-          </div>
+        <header className="flex-none md:hidden">
+          <MobilePetIdentityCard name={pet.name} species={pet.species} temperament={pet.temperament} />
         </header>
 
         <main
           className="flex flex-1 flex-col gap-3 md:min-h-0 md:gap-3"
         >
-          <div className="flex flex-none gap-3 md:min-h-0 md:flex-1 md:items-stretch">
-            <PetIdentityCard name={pet.name} species={pet.species} />
+          <div className="flex flex-none gap-3 md:grid md:min-h-0 md:flex-1 md:grid-cols-[clamp(11rem,16vw,12rem)_minmax(0,1fr)] md:items-stretch md:gap-[clamp(0.75rem,1.6vw,1.25rem)]">
+            <PetIdentityCard name={pet.name} species={pet.species} temperament={pet.temperament} />
 
             <div className="relative min-w-0 flex-1 md:min-h-0">
               {/* Grounded shadow + ambient glow behind the aquarium — purely
@@ -202,24 +198,12 @@ export default function HabitatScreen({ pet, petType, colour, stats, actions, on
           </div>
 
           <div className="md:hidden">
-            <div
-              className="group relative flex-none overflow-hidden rounded-2xl border border-gold/20 bg-gradient-to-b from-[#221c15] via-[#191410] to-[#14100c] p-4 shadow-[0_14px_28px_-14px_rgba(10,6,2,0.65),inset_0_1px_0_rgba(255,224,170,0.08)] transition-transform duration-300 ease-out hover:-translate-y-px"
-            >
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 opacity-[0.04] mix-blend-overlay"
-                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
-              />
-              <p role="status" className="relative text-sm leading-relaxed text-cream/80">{statusText}</p>
-            </div>
-          </div>
-
-          <div className="md:hidden">
             <ActionCard
               actions={actions}
               onAction={handleAction}
               activeKey={activeActionKey}
               pendingKey={pendingAction}
+              moodText={statusText}
             />
             {actionError ? (
               <p className="mt-2 px-1 text-xs text-cream/50" role="status">

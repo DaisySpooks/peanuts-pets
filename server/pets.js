@@ -6,6 +6,7 @@ import {
   isValidColourForSpecies,
   rollColourForSpecies,
 } from './petColours.js'
+import { isValidTemperament, rollTemperament } from './petTemperament.js'
 
 const PET_TYPES = ['axolotl', 'betta', 'turtle']
 const MAX_PET_NAME_LENGTH = 20
@@ -55,6 +56,8 @@ let hasAffectionColumn = true
 // select tier applies rather than multiplying the tier constants, since
 // colour has no ordering relationship with those columns.
 let hasColourColumn = true
+// Same independent-append treatment as colour.
+let hasTemperamentColumn = true
 
 export function validatePetType(petType) {
   return typeof petType === 'string' && PET_TYPES.includes(petType)
@@ -95,7 +98,9 @@ function getPetSelectClause({ includeDiscordUserId = false } = {}) {
   } else {
     select = BASE_PET_SELECT_LEGACY
   }
-  return hasColourColumn ? `${select},colour` : select
+  if (hasColourColumn) select = `${select},colour`
+  if (hasTemperamentColumn) select = `${select},temperament`
+  return select
 }
 
 function buildPetsUrl({ supabaseUrl, discordUserId, select, limit, orderByCreatedAtDesc = false }) {
@@ -140,6 +145,10 @@ function toPet(row, { includeDiscordUserId = false } = {}) {
     // not yet run) or a pre-migration row hasn't been backfilled, so older
     // clients/rigs always get a renderable colour rather than null.
     colour: row.colour ?? FALLBACK_DEFAULT_COLOUR[row.pet_type] ?? null,
+    // No per-species fallback like colour — temperament is cosmetic and
+    // species-independent, so an invalid/missing value just becomes null
+    // (frontend simply omits the Temperament line) rather than guessing one.
+    temperament: isValidTemperament(row.temperament) ? row.temperament : null,
     lastFeedAt: row.last_feed_at ?? null,
     lastCleanAt: row.last_clean_at ?? null,
     lastPlayAt: row.last_play_at ?? null,
@@ -170,6 +179,10 @@ async function detectMissingOptionalColumns(response) {
   }
   if (hasColourColumn && bodyText.includes('colour')) {
     hasColourColumn = false
+    detectedMissingColumn = true
+  }
+  if (hasTemperamentColumn && bodyText.includes('temperament')) {
+    hasTemperamentColumn = false
     detectedMissingColumn = true
   }
 
@@ -327,8 +340,10 @@ export async function createPetIfNotExists({ supabaseUrl, serviceRoleKey, discor
 
   // Rolled once, outside the retry loop below, so a failed/retried insert
   // attempt (missing-column detection, a lost race, etc.) never re-rolls —
-  // the same colour is reused for every attempt at creating this one pet.
+  // the same colour/temperament are reused for every attempt at creating
+  // this one pet.
   const rolledColour = rollColourForSpecies(petType) || FALLBACK_DEFAULT_COLOUR[petType]
+  const rolledTemperament = rollTemperament()
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const response = await fetch(getPetsEndpointUrl(supabaseUrl), {
@@ -345,6 +360,7 @@ export async function createPetIfNotExists({ supabaseUrl, serviceRoleKey, discor
         // known missing, so a retry after detectMissingOptionalColumns
         // flips the flag doesn't just fail the same way again.
         ...(hasColourColumn ? { colour: rolledColour } : {}),
+        ...(hasTemperamentColumn ? { temperament: rolledTemperament } : {}),
       }]),
     })
 

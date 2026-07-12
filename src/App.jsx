@@ -136,7 +136,12 @@ export default function App() {
     <>
       <AuthControls hasAdminAccess={hasAdminAccess} onAdminClick={() => setViewingAdminScreen(true)} />
       <HabitatScreen
-        pet={{ name: pet.petName, species: speciesLabel, lastPettedAt: pet.lastPettedAt ?? null }}
+        pet={{
+          name: pet.petName,
+          species: speciesLabel,
+          temperament: pet.temperament ?? null,
+          lastPettedAt: pet.lastPettedAt ?? null,
+        }}
         petType={pet.petType}
         colour={pet.colour ?? null}
         stats={habitatStats}
