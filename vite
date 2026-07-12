@@ -1,0 +1,79 @@
+Last login: Fri Jul 10 22:35:09 on ttys001
+daisyspooks@66:be:b6:9c:30:8a ~ % cd /Users/daisyspooks/Documents/peanuts-pets
+daisyspooks@66:be:b6:9c:30:8a peanuts-pets % npm run build
+
+> peanuts-pets@0.0.1 build
+> vite build
+
+vite v5.4.21 building for production...
+✓ 56 modules transformed.
+dist/index.html                   0.40 kB │ gzip:  0.27 kB
+dist/assets/index-BLLSqbPK.css   45.39 kB │ gzip:  8.39 kB
+dist/assets/index-bX0hbns-.js   213.06 kB │ gzip: 62.94 kB
+✓ built in 742ms
+daisyspooks@66:be:b6:9c:30:8a peanuts-pets % npm run dev
+
+> peanuts-pets@0.0.1 dev
+> vite
+
+
+  VITE v5.4.21  ready in 101 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+  ➜  press h + enter to show help
+5:24:49 p.m. [vite] http proxy error: /auth/session
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1142:49)
+    at afterConnectMultiple (node:net:1723:7)
+5:24:49 p.m. [vite] http proxy error: /auth/session
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1142:49)
+    at afterConnectMultiple (node:net:1723:7) (x2)
+5:24:49 p.m. [vite] http proxy error: /auth/session
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1142:49)
+    at afterConnectMultiple (node:net:1723:7) (x3)
+5:24:49 p.m. [vite] http proxy error: /auth/session
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1142:49)
+    at afterConnectMultiple (node:net:1723:7) (x4)
+^C
+daisyspooks@66:be:b6:9c:30:8a peanuts-pets % npm run server
+
+> peanuts-pets@0.0.1 server
+> node --watch server/index.js
+
+Auth server listening on port 8787
+daisyspooks@66:be:b6:9c:30:8a peanuts-pets % npm run server
+Restarting 'server/index.js'
+Auth server listening on port 8787
+Pet lookup failed: supabase_pets_lookup_failed_400
+Pet lookup failed: supabase_pets_lookup_failed_400
+Pet lookup failed: supabase_pets_lookup_failed_400
+Pet lookup failed: supabase_pets_lookup_failed_400
+daisyspooks@66:be:b6:9c:30:8a peanuts-pets % npm run server
+
+> peanuts-pets@0.0.1 server
+> node --watch server/index.js
+
+Auth server listening on port 8787
+Pet lookup failed: supabase_pets_lookup_failed_400
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

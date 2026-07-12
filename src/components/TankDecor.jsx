@@ -52,6 +52,43 @@ const PLANT_SWAY_KEYFRAMES = `
 }
 `
 
+// Caustic light patches "projected" onto the substrate — sand, rocks, and
+// the lower portion of the plants. Deliberately NOT a top-of-water effect
+// (TankEffects already owns that); this one is anchored to the floor band
+// of the canvasBox and blended with `soft-light` so it only ever nudges
+// existing surface brightness up a little, never washes the tank out.
+// Each blob drifts and slowly reshapes its own border-radius (an irregular
+// organic blob morphing into another irregular blob) rather than scrolling
+// in a straight line, which is what keeps it reading as dappled light
+// rather than an obvious moving shape. Long (15-19s), mismatched durations
+// per blob so the two never fall into a visible synced rhythm.
+const CAUSTIC_KEYFRAMES = `
+@keyframes caustic-drift-a {
+  0%, 100% { transform: translate(-3%, 2%) scale(1); border-radius: 42% 58% 55% 45% / 48% 42% 58% 52%; }
+  33% { transform: translate(4%, -3%) scale(1.1); border-radius: 55% 45% 48% 52% / 55% 48% 52% 45%; }
+  66% { transform: translate(-2%, -2%) scale(0.94); border-radius: 48% 52% 45% 55% / 45% 55% 48% 52%; }
+}
+@keyframes caustic-drift-b {
+  0%, 100% { transform: translate(3%, -2%) scale(1); border-radius: 55% 45% 48% 52% / 52% 45% 55% 48%; }
+  50% { transform: translate(-4%, 3%) scale(1.08); border-radius: 45% 55% 52% 48% / 48% 52% 45% 55%; }
+}
+@keyframes caustic-glow {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+`
+
+// Soft, warm-white blobs — opacity is the ONLY thing controlling how strong
+// each one reads, and it's capped low (peak alpha 0.04-0.06, i.e. 4-6%)
+// specifically so this stays "not consciously noticeable" even at each
+// blob's brightest moment. Positioned to spread across the sand/rock band
+// rather than stacking in one spot.
+const CAUSTIC_BLOBS = [
+  { left: '4%', top: '2%', width: '34%', height: '85%', color: 'rgba(243,236,221,0.05)', animation: 'caustic-drift-a 16s ease-in-out infinite, caustic-glow 9s ease-in-out infinite' },
+  { left: '36%', top: '10%', width: '30%', height: '75%', color: 'rgba(243,236,221,0.04)', animation: 'caustic-drift-b 19s ease-in-out infinite 2.5s, caustic-glow 11s ease-in-out infinite 1.5s' },
+  { left: '66%', top: '0%', width: '32%', height: '82%', color: 'rgba(243,236,221,0.055)', animation: 'caustic-drift-a 18s ease-in-out infinite 4s, caustic-glow 10s ease-in-out infinite 3s' },
+]
+
 export default function TankDecor() {
   return (
     <div className="absolute inset-0 overflow-hidden">
@@ -102,6 +139,40 @@ export default function TankDecor() {
         alt=""
         className="pointer-events-none absolute inset-0 h-full w-full object-contain"
       />
+
+      {/* Animated caustic light, projected onto the substrate only (sand,
+          rocks, lower plant stalks) — sits above those layers so it reads
+          as light falling on them, not a water-column effect. Rendered
+          after the rocks/plants (so it paints on top of them) but still
+          inside TankDecor, so TankStage's own layering (decor, then
+          shadow, then pet) keeps it behind the pet automatically. Uses its
+          own canvasBox-aligned wrapper (same aspect-[16/7] frame as the
+          plants/shadows above) so the floor band it's confined to lines up
+          with the real sand/rocks at every breakpoint, not just the outer
+          container's own (breakpoint-varying) aspect ratio. */}
+      <style>{CAUSTIC_KEYFRAMES}</style>
+      <div className="pointer-events-none absolute inset-x-0 top-1/2 w-full -translate-y-1/2 aspect-[16/7] overflow-hidden">
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 overflow-hidden"
+          style={{ top: '66%', height: '30%', mixBlendMode: 'soft-light' }}
+        >
+          {CAUSTIC_BLOBS.map((blob, index) => (
+            <div
+              key={index}
+              className="absolute blur-md"
+              style={{
+                left: blob.left,
+                top: blob.top,
+                width: blob.width,
+                height: blob.height,
+                backgroundColor: blob.color,
+                animation: blob.animation,
+              }}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

@@ -12,6 +12,7 @@ import { createSessionCookieValue, verifySessionCookieValue } from './session.js
 import { decideAccess, decideAdminAccess } from './access.js'
 import {
   applyPetCareAction,
+  applyPettingInteraction,
   createPetIfNotExists,
   deletePetByDiscordUserId,
   getPetByDiscordUserId,
@@ -410,6 +411,34 @@ app.post('/api/pets/:action(feed|clean|play)', accessRateLimiter, requireAccess,
     }
     console.error(`Pet ${action} failed:`, error.message)
     res.status(503).json({ error: 'pet_action_failed' })
+  }
+})
+
+app.post('/api/pets/pet', accessRateLimiter, requireAccess, async (req, res) => {
+  try {
+    const pet = await applyPettingInteraction({
+      supabaseUrl: SUPABASE_URL,
+      serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
+      discordUserId: req.discordUserId,
+    })
+
+    if (!pet) {
+      res.status(404).json({ error: 'pet_not_found' })
+      return
+    }
+
+    res.json({ pet: toDisplayPet(pet) })
+  } catch (error) {
+    if (error.code === 'petting_on_cooldown') {
+      res.status(409).json({ error: 'petting_on_cooldown' })
+      return
+    }
+    if (error.code === 'petting_schema_missing') {
+      res.status(503).json({ error: 'petting_schema_missing' })
+      return
+    }
+    console.error('Petting failed:', error.message)
+    res.status(503).json({ error: 'petting_failed' })
   }
 })
 

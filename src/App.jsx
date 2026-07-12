@@ -6,7 +6,7 @@ import PetLoadingScreen from './components/PetLoadingScreen.jsx'
 import AdminScreen from './components/AdminScreen.jsx'
 import { useAuthStatus } from './auth/useAuthStatus.js'
 import { logout } from './auth/discordAuth.js'
-import { getMyPet, performPetAction } from './petApi.js'
+import { getMyPet, performPetAction, performPetting } from './petApi.js'
 import { PET_OPTIONS } from './petOptions.js'
 import { defaultStats } from './mockData.js'
 import { buildPetActions } from './petActions.js'
@@ -135,13 +135,18 @@ export default function App() {
     <>
       <AuthControls hasAdminAccess={hasAdminAccess} onAdminClick={() => setViewingAdminScreen(true)} />
       <HabitatScreen
-        pet={{ name: pet.petName, species: speciesLabel }}
+        pet={{ name: pet.petName, species: speciesLabel, lastPettedAt: pet.lastPettedAt ?? null }}
         petType={pet.petType}
         stats={habitatStats}
         actions={habitatActions}
         onActionPersist={async (action) => {
           const updatedPet = await performPetAction(action)
           setPet(updatedPet)
+        }}
+        onPetPersist={async () => {
+          const updatedPet = await performPetting()
+          setPet(updatedPet)
+          return updatedPet
         }}
       />
     </>

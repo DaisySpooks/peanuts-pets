@@ -65,6 +65,19 @@ const EATING_HOLD_EXTRA_MS = 250
 // visible shut chomp should start ~504ms after `isEating` turns on.
 const CHOMP_TRIGGER_DELAY_MS = 504
 const CHOMP_DURATION_MS = 120
+const IDLE_ANIMATION_MIN_INTERVAL_MS = 20000
+const IDLE_ANIMATION_MAX_INTERVAL_MS = 40000
+const IDLE_FIN_FLARE_DURATION_MS = 1050
+const IDLE_BODY_SWAY_DURATION_MS = 1200
+const PETTING_COOLDOWN_MS = 12 * 60 * 60 * 1000
+const PETTING_REACTION_DURATION_MS = 680
+const PETTING_INVITE_MIN_INTERVAL_MS = 15000
+const PETTING_INVITE_MAX_INTERVAL_MS = 20000
+const PETTING_INVITE_DURATION_MS = 1100
+
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min)
+}
 
 function useExtendedEating(isEating) {
   const [held, setHeld] = useState(isEating)
@@ -120,7 +133,53 @@ const BETTA_KEYFRAMES = `
   45% { transform: translate(1.5%, -1.5%) rotate(5deg); }
   70% { transform: translate(-1%, -0.5%) rotate(-3deg); }
 }
+/* Feed reaction: a brief "notice the food" perk-up (~200ms) before easing
+   into the existing feed lean — same approach as PetRenderer's
+   axolotl-feed-anticipation. 100% is exactly the old static feed-lean
+   transform, so the held pose itself is unchanged; this only prepends an
+   anticipation beat in front of it, and animation-fill-mode: forwards
+   holds that pose for the rest of the feed action same as the transition
+   did before. */
+@keyframes betta-feed-anticipation {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  29% { transform: translate(-1%, -4%) rotate(-2deg) scale(1.025); }
+  100% { transform: translate(-3%, -3%) rotate(-4deg) scale(1); }
+}
+/* Return-to-idle handoff: when isFeeding ends, this plays instead of
+   snapping straight to the plain neutral transition. 0% is exactly the
+   held feed-lean pose; 100% is neutral. Same rationale as PetRenderer's
+   axolotl-feed-release — an animation is always in control of transform
+   here, so there's never an in-between frame with no animation and no
+   transition where the pose could flash to idle before easing starts. */
+@keyframes betta-feed-release {
+  0% { transform: translate(-3%, -3%) rotate(-4deg) scale(1); }
+  100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+}
+@keyframes betta-idle-fin-flare {
+  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  35% { transform: translate(0, -0.3%) rotate(-3.5deg) scale(1.03); }
+  70% { transform: translate(0, 0.1%) rotate(-1.2deg) scale(1.012); }
+}
+@keyframes betta-idle-body-sway {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  30% { transform: translate(0.5%, -0.5%) rotate(-1.8deg); }
+  72% { transform: translate(-0.3%, -0.2%) rotate(1deg); }
+}
+@keyframes betta-petting-sway {
+  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  36% { transform: translate(0.2%, -0.7%) rotate(-2.4deg) scale(1.012); }
+  72% { transform: translate(0.05%, -0.2%) rotate(-0.8deg) scale(1.004); }
+}
+@keyframes betta-petting-fin-flutter {
+  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  28% { transform: translate(0, -0.35%) rotate(-5deg) scale(1.045); }
+  58% { transform: translate(0, 0.15%) rotate(2.8deg) scale(1.018); }
+}
 `
+
+// How long the return-to-idle ease plays after isFeeding ends, before
+// falling back to the plain static neutral style. Purely visual.
+const FEED_RELEASE_DURATION_MS = 320
 
 const PLAY_HEARTS = [
   { left: '12%', top: '10%', delayMs: 0, sizePx: 11 },
@@ -129,14 +188,63 @@ const PLAY_HEARTS = [
   { left: '22%', top: '22%', delayMs: 220, sizePx: 7 },
 ]
 
-export default function BettaRig({ mood = 'happy', stats = {}, isEating = false, isFeeding = false, feedTrigger = 0, isPlaying = false, name }) {
+export default function BettaRig({
+  mood = 'happy',
+  stats = {},
+  lastPettedAt = null,
+  isEating = false,
+  isFeeding = false,
+  feedTrigger = 0,
+  isPlaying = false,
+  isCleaning = false,
+  onPetPersist,
+  name,
+}) {
   const bob = mood === 'happy' ? 'animate-pet-bob' : ''
   const isEatingHeld = useExtendedEating(isEating)
   const face = getBettaFaceState(mood, stats, isEatingHeld, isPlaying)
   const [isChomping, setIsChomping] = useState(false)
   const chompStartTimeoutRef = useRef(null)
   const chompEndTimeoutRef = useRef(null)
-  const isBlinking = useIdleBlink(face.canBlink)
+  const [isReleasingFeed, setIsReleasingFeed] = useState(false)
+  const wasFeedingRef = useRef(isFeeding)
+  const releaseTimeoutRef = useRef(null)
+  const [idleAnimation, setIdleAnimation] = useState(null)
+  const idleScheduleTimeoutRef = useRef(null)
+  const idleAnimationTimeoutRef = useRef(null)
+  const [showPettingInvite, setShowPettingInvite] = useState(false)
+  const [isPetting, setIsPetting] = useState(false)
+  const pettingTimeoutRef = useRef(null)
+  const pettingInviteScheduleTimeoutRef = useRef(null)
+  const pettingInviteVisibleTimeoutRef = useRef(null)
+  const petPersistInFlightRef = useRef(false)
+  const [optimisticLastPettedAt, setOptimisticLastPettedAt] = useState(null)
+  const [pettingAvailabilityNowMs, setPettingAvailabilityNowMs] = useState(() => Date.now())
+  const pettingAvailabilityTimeoutRef = useRef(null)
+
+  // Detect the falling edge of isFeeding (feeding just ended) and play a
+  // brief release animation instead of letting the feed pose disappear and
+  // the idle transform appear in the same frame. Purely local, visual-only
+  // state — never read by HabitatScreen, never delays onActionPersist.
+  useEffect(() => {
+    if (wasFeedingRef.current && !isFeeding) {
+      setIsReleasingFeed(true)
+      clearTimeout(releaseTimeoutRef.current)
+      releaseTimeoutRef.current = setTimeout(() => setIsReleasingFeed(false), FEED_RELEASE_DURATION_MS)
+    }
+    wasFeedingRef.current = isFeeding
+  }, [isFeeding])
+
+  useEffect(() => () => clearTimeout(releaseTimeoutRef.current), [])
+  useEffect(() => () => clearTimeout(pettingTimeoutRef.current), [])
+  useEffect(() => () => {
+    clearTimeout(pettingInviteScheduleTimeoutRef.current)
+    clearTimeout(pettingInviteVisibleTimeoutRef.current)
+  }, [])
+  useEffect(() => () => clearTimeout(pettingAvailabilityTimeoutRef.current), [])
+  useEffect(() => {
+    setOptimisticLastPettedAt(null)
+  }, [lastPettedAt])
 
   useEffect(() => {
     if (!isEating) {
@@ -161,18 +269,187 @@ export default function BettaRig({ mood = 'happy', stats = {}, isEating = false,
     }
   }, [isEating])
 
+  const happiness = typeof stats.happiness === 'number' ? stats.happiness : null
+  const isSleepy = mood === 'sleepy' || mood === 'tired' || mood === 'resting'
+    || (happiness !== null && happiness <= SLEEPY_HAPPINESS_THRESHOLD)
+  const canIdleAnimate = !isFeeding && !isPlaying && !isCleaning && !isEating && !isReleasingFeed && !isChomping && !isSleepy
+  const activeIdleAnimation = canIdleAnimate ? idleAnimation : null
+  const effectiveLastPettedAt = optimisticLastPettedAt ?? lastPettedAt
+  const lastPettedMs = effectiveLastPettedAt ? new Date(effectiveLastPettedAt).getTime() : Number.NaN
+  const isPettingAvailable = !Number.isFinite(lastPettedMs) || (pettingAvailabilityNowMs - lastPettedMs) >= PETTING_COOLDOWN_MS
+  const canPet = !isFeeding
+    && !isPlaying
+    && !isCleaning
+    && !isEating
+    && !isReleasingFeed
+    && !isChomping
+    && !isSleepy
+    && !activeIdleAnimation
+    && !isPetting
+    && isPettingAvailable
+    && !petPersistInFlightRef.current
+
+  useEffect(() => {
+    clearTimeout(pettingAvailabilityTimeoutRef.current)
+    setPettingAvailabilityNowMs(Date.now())
+
+    if (!Number.isFinite(lastPettedMs)) return undefined
+
+    const remainingMs = PETTING_COOLDOWN_MS - (Date.now() - lastPettedMs)
+    if (remainingMs <= 0) return undefined
+
+    pettingAvailabilityTimeoutRef.current = setTimeout(() => {
+      setPettingAvailabilityNowMs(Date.now())
+    }, remainingMs)
+
+    return () => clearTimeout(pettingAvailabilityTimeoutRef.current)
+  }, [lastPettedMs])
+
+  useEffect(() => {
+    clearTimeout(idleScheduleTimeoutRef.current)
+    clearTimeout(idleAnimationTimeoutRef.current)
+
+    if (!canIdleAnimate) {
+      setIdleAnimation(null)
+      return undefined
+    }
+
+    const scheduleNextIdleAnimation = () => {
+      idleScheduleTimeoutRef.current = setTimeout(() => {
+        const nextAnimation = Math.random() < 0.5 ? 'fin-flare' : 'body-sway'
+        const durationMs = nextAnimation === 'fin-flare'
+          ? IDLE_FIN_FLARE_DURATION_MS
+          : IDLE_BODY_SWAY_DURATION_MS
+
+        setIdleAnimation(nextAnimation)
+        idleAnimationTimeoutRef.current = setTimeout(() => {
+          setIdleAnimation(null)
+          scheduleNextIdleAnimation()
+        }, durationMs)
+      }, randomBetween(IDLE_ANIMATION_MIN_INTERVAL_MS, IDLE_ANIMATION_MAX_INTERVAL_MS))
+    }
+
+    scheduleNextIdleAnimation()
+
+    return () => {
+      clearTimeout(idleScheduleTimeoutRef.current)
+      clearTimeout(idleAnimationTimeoutRef.current)
+    }
+  }, [canIdleAnimate])
+
+  useEffect(() => {
+    clearTimeout(pettingInviteScheduleTimeoutRef.current)
+    clearTimeout(pettingInviteVisibleTimeoutRef.current)
+
+    if (!isPettingAvailable || !canPet) {
+      setShowPettingInvite(false)
+      return undefined
+    }
+
+    const scheduleInvite = () => {
+      pettingInviteScheduleTimeoutRef.current = setTimeout(() => {
+        setShowPettingInvite(true)
+        pettingInviteVisibleTimeoutRef.current = setTimeout(() => {
+          setShowPettingInvite(false)
+          scheduleInvite()
+        }, PETTING_INVITE_DURATION_MS)
+      }, randomBetween(PETTING_INVITE_MIN_INTERVAL_MS, PETTING_INVITE_MAX_INTERVAL_MS))
+    }
+
+    scheduleInvite()
+
+    return () => {
+      clearTimeout(pettingInviteScheduleTimeoutRef.current)
+      clearTimeout(pettingInviteVisibleTimeoutRef.current)
+    }
+  }, [canPet, isPettingAvailable])
+
+  const isBlinking = useIdleBlink(face.canBlink && !isCleaning && !isReleasingFeed && !activeIdleAnimation && !isPetting)
   const eyes = isChomping ? 'eyes-closed' : isBlinking ? 'eyes-closed' : face.eyes
   const mouth = isChomping ? 'mouth-idle' : face.mouth
-  const layers = [...BASE_LAYERS, eyes, mouth]
+  const pettingEyes = isPetting ? 'eyes-closed' : eyes
+  const pettingMouth = isPetting ? 'mouth-happy' : mouth
+  const layers = [...BASE_LAYERS, pettingEyes, pettingMouth]
 
-  // Feed: lean gently toward the food, then ease back to neutral. Play: a
-  // quick, contained happy wiggle. Both live on this inner wrapper (not the
-  // outer pet-bob element) so they never fight with the whole-body float.
+  function getIdleWrapperStyle(layer) {
+    if (activeIdleAnimation === 'fin-flare' && (
+      layer === 'fin-top'
+      || layer === 'fin-bottom'
+      || layer === 'fin-side-left'
+      || layer === 'fin-side-right'
+    )) {
+      return {
+        transformOrigin: FIN_MOTION[layer].origin,
+        animation: `betta-idle-fin-flare ${IDLE_FIN_FLARE_DURATION_MS}ms ease-in-out 1`,
+      }
+    }
+
+    if (activeIdleAnimation === 'body-sway' && (
+      layer === 'body'
+      || layer === 'head'
+      || layer === 'tail'
+      || layer === eyes
+      || layer === mouth
+    )) {
+      return {
+        transformOrigin: '52% 52%',
+        animation: `betta-idle-body-sway ${IDLE_BODY_SWAY_DURATION_MS}ms ease-in-out 1`,
+      }
+    }
+
+    return { transform: 'translate(0, 0) rotate(0deg)' }
+  }
+
+  function getPettingWrapperStyle(layer) {
+    if (!isPetting) return { transform: 'translate(0, 0) rotate(0deg)' }
+
+    if (layer === 'fin-top' || layer === 'fin-bottom' || layer === 'fin-side-left' || layer === 'fin-side-right') {
+      return {
+        transformOrigin: FIN_MOTION[layer].origin,
+        animation: `betta-petting-fin-flutter ${PETTING_REACTION_DURATION_MS}ms ease-out 1`,
+      }
+    }
+
+    return { transform: 'translate(0, 0) rotate(0deg)' }
+  }
+
+  const handlePetting = () => {
+    if (!canPet) return
+
+    clearTimeout(pettingTimeoutRef.current)
+    clearTimeout(pettingInviteScheduleTimeoutRef.current)
+    clearTimeout(pettingInviteVisibleTimeoutRef.current)
+    setShowPettingInvite(false)
+    setIsPetting(true)
+    petPersistInFlightRef.current = true
+    setOptimisticLastPettedAt(new Date().toISOString())
+    pettingTimeoutRef.current = setTimeout(() => setIsPetting(false), PETTING_REACTION_DURATION_MS)
+
+    Promise.resolve(onPetPersist?.())
+      .catch(() => {
+        setOptimisticLastPettedAt(null)
+      })
+      .finally(() => {
+        petPersistInFlightRef.current = false
+      })
+  }
+
+  // Feed: a brief "notice the food" anticipation beat, then lean gently
+  // toward the food (held for the rest of the feed action), then ease back
+  // to neutral once isFeeding ends. Play: a quick, contained happy wiggle.
+  // All live on this inner wrapper (not the outer pet-bob element) so they
+  // never fight with the whole-body float. Purely visual — isFeeding is
+  // still set the instant Feed is pressed, so this never delays the actual
+  // action/persist/cooldown.
   const actionStyle = isFeeding
-    ? { transform: 'translate(-3%, -3%) rotate(-4deg)', transition: 'transform 500ms ease-out' }
+    ? { animation: 'betta-feed-anticipation 700ms ease-out 1 forwards' }
     : isPlaying
       ? { animation: 'betta-play-wiggle 1.4s ease-in-out 1' }
-      : { transform: 'translate(0, 0) rotate(0deg)', transition: 'transform 500ms ease-out' }
+      : isReleasingFeed
+        ? { animation: `betta-feed-release ${FEED_RELEASE_DURATION_MS}ms ease-out 1 forwards` }
+        : isPetting
+          ? { animation: `betta-petting-sway ${PETTING_REACTION_DURATION_MS}ms ease-out 1 forwards` }
+        : { transform: 'translate(0, 0) rotate(0deg)', transition: 'transform 500ms ease-out' }
 
   return (
     <div
@@ -183,13 +460,18 @@ export default function BettaRig({ mood = 'happy', stats = {}, isEating = false,
       <style>{BETTA_KEYFRAMES}</style>
       <div className="relative aspect-[586/488] w-full drop-shadow-lg" style={actionStyle}>
         {layers.map((layer, index) => (
-          <img
+          <span
             key={layer}
-            src={`/assets/betta/${layer}.png`}
-            alt=""
-            className="absolute inset-0 h-full w-full"
-            style={{ zIndex: index, ...finLayerStyle(layer) }}
-          />
+            className="absolute inset-0 block"
+            style={{ zIndex: index, ...getPettingWrapperStyle(layer), ...getIdleWrapperStyle(layer) }}
+          >
+            <img
+              src={`/assets/betta/${layer}.png`}
+              alt=""
+              className="absolute inset-0 h-full w-full"
+              style={finLayerStyle(layer)}
+            />
+          </span>
         ))}
         {isFeeding && (
           <img
@@ -199,6 +481,34 @@ export default function BettaRig({ mood = 'happy', stats = {}, isEating = false,
             className="pointer-events-none absolute aspect-square w-[14%]"
             style={{ zIndex: layers.length, animation: 'betta-pellet-drop 1800ms ease-in-out forwards' }}
           />
+        )}
+        {showPettingInvite && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute flex items-center justify-center leading-none text-cream/75 animate-play-heart"
+            style={{
+              left: '22%',
+              top: '14%',
+              fontSize: '9px',
+              zIndex: layers.length + 1,
+            }}
+          >
+            ♥
+          </span>
+        )}
+        {isPetting && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute flex items-center justify-center leading-none text-cream/90 animate-play-heart"
+            style={{
+              left: '18%',
+              top: '12%',
+              fontSize: '11px',
+              zIndex: layers.length + 2,
+            }}
+          >
+            ♥
+          </span>
         )}
         {isPlaying && PLAY_HEARTS.map((heart, index) => (
           <span
@@ -216,6 +526,13 @@ export default function BettaRig({ mood = 'happy', stats = {}, isEating = false,
             ♥
           </span>
         ))}
+        <button
+          type="button"
+          aria-label="Pet the betta"
+          onClick={handlePetting}
+          className="absolute left-[12%] top-[20%] h-[44%] w-[62%] rounded-full bg-transparent"
+          style={{ zIndex: layers.length + 3 }}
+        />
       </div>
     </div>
   )

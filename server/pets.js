@@ -28,14 +28,19 @@ const STAT_DECAY_PER_DAY = {
   happiness: 30,
 }
 const MAX_SIMULATED_ELAPSED_HOURS = 24 * 365
+const PETTING_COOLDOWN_MS = 12 * 60 * 60 * 1000
 const PET_ACTIONS = {
   feed: { statKey: 'hunger', delta: 25, columnTimestampKey: 'last_feed_at', petTimestampKey: 'lastFeedAt', cooldownMs: 2 * 60 * 60 * 1000 },
   clean: { statKey: 'cleanliness', delta: 25, columnTimestampKey: 'last_clean_at', petTimestampKey: 'lastCleanAt', cooldownMs: 3 * 60 * 60 * 1000 },
   play: { statKey: 'happiness', delta: 25, columnTimestampKey: 'last_play_at', petTimestampKey: 'lastPlayAt', cooldownMs: 4 * 60 * 60 * 1000 },
 }
-const BASE_PET_SELECT =
+const BASE_PET_SELECT_WITH_PETTING =
+  'pet_type,pet_name,created_at,hunger,cleanliness,happiness,last_feed_at,last_clean_at,last_play_at,last_petted_at,updated_at,last_decay_at'
+const BASE_PET_SELECT_LEGACY =
   'pet_type,pet_name,created_at,hunger,cleanliness,happiness,last_feed_at,last_clean_at,last_play_at,updated_at,last_decay_at'
-const ADMIN_PET_SELECT = `discord_user_id,${BASE_PET_SELECT}`
+const ADMIN_PET_SELECT_WITH_PETTING = `discord_user_id,${BASE_PET_SELECT_WITH_PETTING}`
+const ADMIN_PET_SELECT_LEGACY = `discord_user_id,${BASE_PET_SELECT_LEGACY}`
+let hasLastPettedAtColumn = true
 
 export function validatePetType(petType) {
   return typeof petType === 'string' && PET_TYPES.includes(petType)
@@ -64,7 +69,10 @@ function getPetsEndpointUrl(supabaseUrl) {
 }
 
 function getPetSelectClause({ includeDiscordUserId = false } = {}) {
-  return includeDiscordUserId ? ADMIN_PET_SELECT : BASE_PET_SELECT
+  if (includeDiscordUserId) {
+    return hasLastPettedAtColumn ? ADMIN_PET_SELECT_WITH_PETTING : ADMIN_PET_SELECT_LEGACY
+  }
+  return hasLastPettedAtColumn ? BASE_PET_SELECT_WITH_PETTING : BASE_PET_SELECT_LEGACY
 }
 
 function buildPetsUrl({ supabaseUrl, discordUserId, select, limit, orderByCreatedAtDesc = false }) {
@@ -107,6 +115,7 @@ function toPet(row, { includeDiscordUserId = false } = {}) {
     lastFeedAt: row.last_feed_at ?? null,
     lastCleanAt: row.last_clean_at ?? null,
     lastPlayAt: row.last_play_at ?? null,
+    lastPettedAt: row.last_petted_at ?? null,
     updatedAt: row.updated_at ?? row.created_at ?? null,
     lastDecayAt: row.last_decay_at ?? row.updated_at ?? row.created_at ?? null,
   }
@@ -116,6 +125,16 @@ function toPet(row, { includeDiscordUserId = false } = {}) {
   }
 
   return pet
+}
+
+async function isMissingLastPettedAtColumnResponse(response) {
+  if (response.status !== 400 || !hasLastPettedAtColumn) return false
+
+  const bodyText = await response.text()
+  if (!bodyText.includes('last_petted_at')) return false
+
+  hasLastPettedAtColumn = false
+  return true
 }
 
 // Rounds the fractional stat values for client display only — the stored
@@ -135,6 +154,13 @@ export function validatePetAction(action) {
   return typeof action === 'string' && Object.hasOwn(PET_ACTIONS, action)
 }
 
+function getPettingCooldownRemainingMs(lastPettedAt, nowMs = Date.now()) {
+  if (!lastPettedAt) return 0
+  const lastPettedMs = new Date(lastPettedAt).getTime()
+  if (!Number.isFinite(lastPettedMs)) return 0
+  return Math.max(0, PETTING_COOLDOWN_MS - (nowMs - lastPettedMs))
+}
+
 function getCareStatsPreset(preset) {
   if (preset === 'default') return DEFAULT_CARE_STATS
   if (preset === 'low') return LOW_CARE_STATS
@@ -143,27 +169,34 @@ function getCareStatsPreset(preset) {
 }
 
 async function patchPetByDiscordUserId({ supabaseUrl, serviceRoleKey, discordUserId, payload }) {
-  const url = buildPetsUrl({
-    supabaseUrl,
-    discordUserId,
-    select: getPetSelectClause(),
-  })
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const url = buildPetsUrl({
+      supabaseUrl,
+      discordUserId,
+      select: getPetSelectClause(),
+    })
 
-  const response = await fetch(url, {
-    method: 'PATCH',
-    headers: restHeaders(serviceRoleKey, {
-      'Content-Type': 'application/json',
-      Prefer: 'return=representation',
-    }),
-    body: JSON.stringify(payload),
-  })
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: restHeaders(serviceRoleKey, {
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      }),
+      body: JSON.stringify(payload),
+    })
 
-  if (!response.ok) {
-    throw new Error(`supabase_pets_patch_failed_${response.status}`)
+    if (!response.ok) {
+      if (await isMissingLastPettedAtColumnResponse(response)) {
+        continue
+      }
+      throw new Error(`supabase_pets_patch_failed_${response.status}`)
+    }
+
+    const rows = await response.json()
+    return toPet(rows[0])
   }
 
-  const rows = await response.json()
-  return toPet(rows[0])
+  throw new Error('supabase_pets_patch_failed_400')
 }
 
 // Computes decay from elapsed real time since `last_decay_at` only — never
@@ -213,19 +246,32 @@ async function applyDecayIfDue({ supabaseUrl, serviceRoleKey, discordUserId, pet
 }
 
 export async function getPetByDiscordUserId({ supabaseUrl, serviceRoleKey, discordUserId }) {
-  const url = buildPetsUrl({
-    supabaseUrl,
-    discordUserId,
-    select: getPetSelectClause(),
-    limit: 1,
-  })
+  let rows = null
 
-  const response = await fetch(url, { headers: restHeaders(serviceRoleKey) })
-  if (!response.ok) {
-    throw new Error(`supabase_pets_lookup_failed_${response.status}`)
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const url = buildPetsUrl({
+      supabaseUrl,
+      discordUserId,
+      select: getPetSelectClause(),
+      limit: 1,
+    })
+
+    const response = await fetch(url, { headers: restHeaders(serviceRoleKey) })
+    if (!response.ok) {
+      if (await isMissingLastPettedAtColumnResponse(response)) {
+        continue
+      }
+      throw new Error(`supabase_pets_lookup_failed_${response.status}`)
+    }
+
+    rows = await response.json()
+    break
   }
 
-  const rows = await response.json()
+  if (!rows) {
+    throw new Error('supabase_pets_lookup_failed_400')
+  }
+
   const pet = toPet(rows[0])
   if (!pet) return null
 
@@ -239,29 +285,38 @@ export async function createPetIfNotExists({ supabaseUrl, serviceRoleKey, discor
   const existing = await getPetByDiscordUserId({ supabaseUrl, serviceRoleKey, discordUserId })
   if (existing) return existing
 
-  const response = await fetch(getPetsEndpointUrl(supabaseUrl), {
-    method: 'POST',
-    headers: restHeaders(serviceRoleKey, {
-      'Content-Type': 'application/json',
-      Prefer: 'return=representation',
-    }),
-    body: JSON.stringify([{ discord_user_id: discordUserId, pet_type: petType, pet_name: petName }]),
-  })
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch(getPetsEndpointUrl(supabaseUrl), {
+      method: 'POST',
+      headers: restHeaders(serviceRoleKey, {
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      }),
+      body: JSON.stringify([{ discord_user_id: discordUserId, pet_type: petType, pet_name: petName }]),
+    })
 
-  if (response.status === 409) {
-    // Lost a race with a duplicate insert — the unique constraint on
-    // discord_user_id did its job. Return whatever is actually there now.
-    const current = await getPetByDiscordUserId({ supabaseUrl, serviceRoleKey, discordUserId })
-    if (current) return current
-    throw new Error('supabase_pets_conflict_without_existing_row')
+    if (response.status === 409) {
+      // Lost a race with a duplicate insert — the unique constraint on
+      // discord_user_id did its job. Return whatever is actually there now.
+      const current = await getPetByDiscordUserId({ supabaseUrl, serviceRoleKey, discordUserId })
+      if (current) return current
+      throw new Error('supabase_pets_conflict_without_existing_row')
+    }
+
+    if (!response.ok) {
+      if (await isMissingLastPettedAtColumnResponse(response)) {
+        const current = await getPetByDiscordUserId({ supabaseUrl, serviceRoleKey, discordUserId })
+        if (current) return current
+        continue
+      }
+      throw new Error(`supabase_pets_create_failed_${response.status}`)
+    }
+
+    const rows = await response.json()
+    return toPet(rows[0])
   }
 
-  if (!response.ok) {
-    throw new Error(`supabase_pets_create_failed_${response.status}`)
-  }
-
-  const rows = await response.json()
-  return toPet(rows[0])
+  throw new Error('supabase_pets_create_failed_400')
 }
 
 export async function applyPetCareAction({ supabaseUrl, serviceRoleKey, discordUserId, action }) {
@@ -294,19 +349,85 @@ export async function applyPetCareAction({ supabaseUrl, serviceRoleKey, discordU
   return patchPetByDiscordUserId({ supabaseUrl, serviceRoleKey, discordUserId, payload })
 }
 
-export async function getPetSummary({ supabaseUrl, serviceRoleKey, recentLimit = 10 }) {
+export async function applyPettingInteraction({ supabaseUrl, serviceRoleKey, discordUserId }) {
+  const existing = await getPetByDiscordUserId({ supabaseUrl, serviceRoleKey, discordUserId })
+  if (!existing) return null
+
+  if (!hasLastPettedAtColumn) {
+    const error = new Error('petting_schema_missing')
+    error.code = 'petting_schema_missing'
+    throw error
+  }
+
+  if (getPettingCooldownRemainingMs(existing.lastPettedAt) > 0) {
+    const error = new Error('petting_on_cooldown')
+    error.code = 'petting_on_cooldown'
+    throw error
+  }
+
+  const now = new Date().toISOString()
   const url = buildPetsUrl({
     supabaseUrl,
-    select: getPetSelectClause({ includeDiscordUserId: true }),
-    orderByCreatedAtDesc: true,
+    discordUserId,
+    select: getPetSelectClause(),
+  })
+  url.searchParams.set(
+    'or',
+    `(last_petted_at.is.null,last_petted_at.lt.${new Date(Date.now() - PETTING_COOLDOWN_MS).toISOString()})`,
+  )
+
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: restHeaders(serviceRoleKey, {
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    }),
+    body: JSON.stringify({
+      last_petted_at: now,
+      updated_at: now,
+    }),
   })
 
-  const response = await fetch(url, { headers: restHeaders(serviceRoleKey) })
   if (!response.ok) {
-    throw new Error(`supabase_pets_summary_failed_${response.status}`)
+    throw new Error(`supabase_pets_patch_failed_${response.status}`)
   }
 
   const rows = await response.json()
+  if (rows.length === 0) {
+    const error = new Error('petting_on_cooldown')
+    error.code = 'petting_on_cooldown'
+    throw error
+  }
+
+  return toPet(rows[0])
+}
+
+export async function getPetSummary({ supabaseUrl, serviceRoleKey, recentLimit = 10 }) {
+  let rows = null
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const url = buildPetsUrl({
+      supabaseUrl,
+      select: getPetSelectClause({ includeDiscordUserId: true }),
+      orderByCreatedAtDesc: true,
+    })
+
+    const response = await fetch(url, { headers: restHeaders(serviceRoleKey) })
+    if (!response.ok) {
+      if (await isMissingLastPettedAtColumnResponse(response)) {
+        continue
+      }
+      throw new Error(`supabase_pets_summary_failed_${response.status}`)
+    }
+
+    rows = await response.json()
+    break
+  }
+
+  if (!rows) {
+    throw new Error('supabase_pets_summary_failed_400')
+  }
+
   const pets = rows.map((row) => toPet(row, { includeDiscordUserId: true }))
   const countByType = { axolotl: 0, betta: 0, turtle: 0 }
 
@@ -324,20 +445,33 @@ export async function getPetSummary({ supabaseUrl, serviceRoleKey, recentLimit =
 }
 
 export async function listPets({ supabaseUrl, serviceRoleKey, discordUserId, limit = 25 }) {
-  const url = buildPetsUrl({
-    supabaseUrl,
-    discordUserId,
-    select: getPetSelectClause({ includeDiscordUserId: true }),
-    limit,
-    orderByCreatedAtDesc: true,
-  })
+  let rows = null
 
-  const response = await fetch(url, { headers: restHeaders(serviceRoleKey) })
-  if (!response.ok) {
-    throw new Error(`supabase_pets_list_failed_${response.status}`)
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const url = buildPetsUrl({
+      supabaseUrl,
+      discordUserId,
+      select: getPetSelectClause({ includeDiscordUserId: true }),
+      limit,
+      orderByCreatedAtDesc: true,
+    })
+
+    const response = await fetch(url, { headers: restHeaders(serviceRoleKey) })
+    if (!response.ok) {
+      if (await isMissingLastPettedAtColumnResponse(response)) {
+        continue
+      }
+      throw new Error(`supabase_pets_list_failed_${response.status}`)
+    }
+
+    rows = await response.json()
+    break
   }
 
-  const rows = await response.json()
+  if (!rows) {
+    throw new Error('supabase_pets_list_failed_400')
+  }
+
   return rows.map((row) => toPet(row, { includeDiscordUserId: true }))
 }
 

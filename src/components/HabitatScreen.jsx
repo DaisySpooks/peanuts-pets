@@ -49,7 +49,7 @@ function getPetStatusText({ isFeeding, isCleaning, isPlaying, stats }) {
   return 'Just floating.'
 }
 
-export default function HabitatScreen({ pet, petType, stats, actions, onActionPersist }) {
+export default function HabitatScreen({ pet, petType, stats, actions, onActionPersist, onPetPersist }) {
   const statsForMood = Object.fromEntries(stats.map((s) => [s.key, s.value]))
   const [isFeeding, setIsFeeding] = useState(false)
   const [isEating, setIsEating] = useState(false)
@@ -180,6 +180,7 @@ export default function HabitatScreen({ pet, petType, stats, actions, onActionPe
             <TankStage
               species={petType}
               name={pet.name}
+              lastPettedAt={pet.lastPettedAt ?? null}
               mood="happy"
               stats={statsForMood}
               isEating={isEating}
@@ -187,6 +188,7 @@ export default function HabitatScreen({ pet, petType, stats, actions, onActionPe
               feedTrigger={feedTrigger}
               isCleaning={isCleaning}
               isPlaying={isPlaying}
+              onPetPersist={onPetPersist}
             />
           </div>
 

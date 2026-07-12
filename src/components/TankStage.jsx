@@ -66,7 +66,7 @@ const CLEAN_FEEDBACK_KEYFRAMES = `
 
 // The tank "frame": glass, water, reflections, layout container.
 // Composes decor/effects/pet but never reaches into PetRenderer's internals.
-export default function TankStage({ species, name, mood, stats, isEating, isFeeding, feedTrigger, isCleaning, isPlaying }) {
+export default function TankStage({ species, name, lastPettedAt, mood, stats, isEating, isFeeding, feedTrigger, isCleaning, isPlaying, onPetPersist }) {
   // Always the real stat-derived value — never forced to 0 during the Clean
   // action. The existing transition-opacity below animates smoothly from
   // whatever the overlay's current opacity is to this new target the moment
@@ -102,7 +102,19 @@ export default function TankStage({ species, name, mood, stats, isEating, isFeed
       </div>
       <TankDecor />
       <PetShadow mood={mood} isFeeding={isFeeding} isPlaying={isPlaying} />
-      <PetRig species={species} name={name} mood={mood} stats={stats} isEating={isEating} isFeeding={isFeeding} feedTrigger={feedTrigger} isPlaying={isPlaying} />
+      <PetRig
+        species={species}
+        name={name}
+        lastPettedAt={lastPettedAt}
+        mood={mood}
+        stats={stats}
+        isEating={isEating}
+        isFeeding={isFeeding}
+        feedTrigger={feedTrigger}
+        isCleaning={isCleaning}
+        isPlaying={isPlaying}
+        onPetPersist={onPetPersist}
+      />
       {/* dirty-water overlay: same full-canvas object-contain box as water.png/tank.png
           so it stays pixel-aligned with them on every breakpoint. Sits above the pet
           and decor so grime visibly affects the whole tank; opacity is driven by the

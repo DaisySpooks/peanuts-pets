@@ -43,3 +43,18 @@ export async function performPetAction(action) {
   const data = await response.json()
   return data.pet
 }
+
+export async function performPetting() {
+  const response = await fetch('/api/pets/pet', {
+    method: 'POST',
+    credentials: 'include',
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    const error = new Error(data.error || `petting_failed_${response.status}`)
+    error.status = response.status
+    throw error
+  }
+  const data = await response.json()
+  return data.pet
+}
