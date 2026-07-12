@@ -41,12 +41,13 @@ const FIN_MOTION = {
   'fin-front-left': { keyframe: 'limb-float-b', duration: '4.6s', delay: '1.1s', origin: '45% 64%' },
 }
 
-function finLayerStyle(layer) {
+function finLayerStyle(layer, jitterSeconds = 0) {
   const motion = FIN_MOTION[layer]
   if (!motion) return {}
+  const totalDelaySeconds = parseFloat(motion.delay) + jitterSeconds
   return {
     transformOrigin: motion.origin,
-    animation: `${motion.keyframe} ${motion.duration} ease-in-out ${motion.delay} infinite`,
+    animation: `${motion.keyframe} ${motion.duration} ease-in-out ${totalDelaySeconds}s infinite`,
   }
 }
 
@@ -70,13 +71,32 @@ const IDLE_ANIMATION_MAX_INTERVAL_MS = 40000
 const IDLE_FIN_FLARE_DURATION_MS = 1050
 const IDLE_BODY_SWAY_DURATION_MS = 1200
 const PETTING_COOLDOWN_MS = 12 * 60 * 60 * 1000
-const PETTING_REACTION_DURATION_MS = 680
+// Matches PetRenderer.jsx / TurtleRig.jsx — the previous 680ms was
+// unexplained drift from the shared 700ms, not a deliberate per-species
+// feel difference, so normalized to keep petting timing consistent across
+// species.
+const PETTING_REACTION_DURATION_MS = 700
 const PETTING_INVITE_MIN_INTERVAL_MS = 15000
 const PETTING_INVITE_MAX_INTERVAL_MS = 20000
 const PETTING_INVITE_DURATION_MS = 1100
 
 function randomBetween(min, max) {
   return min + Math.random() * (max - min)
+}
+
+// Continuous idle loops (body bob, fin/tail sway) all start at
+// animation-delay: 0 by default, so every mount begins perfectly in phase —
+// on repeat viewing this reads as a mechanical, animatronic cycle rather
+// than a living creature. Each loop gets its own small negative starting
+// delay, generated once per mount and held for the component's lifetime, so
+// loops appear to already be mid-cycle and never restart in sync with each
+// other. The existing per-fin stagger (FIN_MOTION delays) is preserved —
+// this jitter is added on top of it. Duration/amplitude/keyframes/easing
+// are untouched.
+const IDLE_LOOP_DELAY_JITTER_MAX_S = 2
+
+function randomNegativeDelaySeconds(maxSeconds) {
+  return -(Math.random() * maxSeconds)
 }
 
 function useExtendedEating(isEating) {
@@ -200,7 +220,7 @@ export default function BettaRig({
   onPetPersist,
   name,
 }) {
-  const bob = mood === 'happy' ? 'animate-pet-bob' : ''
+  const bob = mood === 'happy' ? 'animate-pet-bob motion-ambient' : ''
   const isEatingHeld = useExtendedEating(isEating)
   const face = getBettaFaceState(mood, stats, isEatingHeld, isPlaying)
   const [isChomping, setIsChomping] = useState(false)
@@ -221,6 +241,20 @@ export default function BettaRig({
   const [optimisticLastPettedAt, setOptimisticLastPettedAt] = useState(null)
   const [pettingAvailabilityNowMs, setPettingAvailabilityNowMs] = useState(() => Date.now())
   const pettingAvailabilityTimeoutRef = useRef(null)
+  const idleLoopDelaysRef = useRef(null)
+  if (idleLoopDelaysRef.current === null) {
+    idleLoopDelaysRef.current = {
+      bob: randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      tail: randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      'fin-top': randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      'fin-bottom': randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      'fin-side-right': randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      'fin-side-left': randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      'fin-front-right': randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      'fin-front-left': randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+    }
+  }
+  const idleLoopDelays = idleLoopDelaysRef.current
 
   // Detect the falling edge of isFeeding (feeding just ended) and play a
   // brief release animation instead of letting the feed pose disappear and
@@ -272,7 +306,7 @@ export default function BettaRig({
   const happiness = typeof stats.happiness === 'number' ? stats.happiness : null
   const isSleepy = mood === 'sleepy' || mood === 'tired' || mood === 'resting'
     || (happiness !== null && happiness <= SLEEPY_HAPPINESS_THRESHOLD)
-  const canIdleAnimate = !isFeeding && !isPlaying && !isCleaning && !isEating && !isReleasingFeed && !isChomping && !isSleepy
+  const canIdleAnimate = !isFeeding && !isPlaying && !isCleaning && !isEating && !isReleasingFeed && !isChomping && !isSleepy && !isPetting
   const activeIdleAnimation = canIdleAnimate ? idleAnimation : null
   const effectiveLastPettedAt = optimisticLastPettedAt ?? lastPettedAt
   const lastPettedMs = effectiveLastPettedAt ? new Date(effectiveLastPettedAt).getTime() : Number.NaN
@@ -456,6 +490,7 @@ export default function BettaRig({
       className={`absolute left-1/2 top-[54%] w-[clamp(4.75rem,26%,6.5rem)] -translate-x-1/2 -translate-y-1/2 sm:w-[clamp(5.5rem,24%,8rem)] md:w-[clamp(6rem,20%,14rem)] ${bob}`}
       role="img"
       aria-label={`${name || 'Your betta'}, mood: ${mood}`}
+      style={bob ? { animationDelay: `${idleLoopDelays.bob}s` } : undefined}
     >
       <style>{BETTA_KEYFRAMES}</style>
       <div className="relative aspect-[586/488] w-full drop-shadow-lg" style={actionStyle}>
@@ -468,8 +503,8 @@ export default function BettaRig({
             <img
               src={`/assets/betta/${layer}.png`}
               alt=""
-              className="absolute inset-0 h-full w-full"
-              style={finLayerStyle(layer)}
+              className="absolute inset-0 h-full w-full motion-ambient"
+              style={finLayerStyle(layer, idleLoopDelays[layer] ?? 0)}
             />
           </span>
         ))}

@@ -139,14 +139,14 @@ export default function TankEffects() {
           radial ellipses (not flat rectangles) so every edge feathers out
           instead of leaving a hard seam against the surrounding water. */}
       <div
-        className="absolute -top-6 left-[20%] h-2/3 w-[26%] origin-top blur-md"
+        className="absolute -top-6 left-[20%] h-2/3 w-[26%] origin-top blur-md motion-ambient"
         style={{
           background: 'radial-gradient(ellipse 50% 100% at 50% 0%, rgba(243,236,221,0.22), transparent 72%)',
           animation: 'ray-sway-a 8s ease-in-out infinite',
         }}
       />
       <div
-        className="absolute -top-6 left-[52%] h-3/5 w-[22%] origin-top blur-md"
+        className="absolute -top-6 left-[52%] h-3/5 w-[22%] origin-top blur-md motion-ambient"
         style={{
           background: 'radial-gradient(ellipse 50% 100% at 50% 0%, rgba(243,236,221,0.16), transparent 72%)',
           animation: 'ray-sway-b 10s ease-in-out infinite',
@@ -156,7 +156,7 @@ export default function TankEffects() {
       {/* faint caustic/refraction overlay beneath the surface: two soft
           blobs on a slow drift, low opacity so it barely reads as movement */}
       <div
-        className="absolute inset-x-0 top-0 h-3/4 opacity-[0.06]"
+        className="absolute inset-x-0 top-0 h-3/4 opacity-[0.06] motion-ambient"
         style={{
           backgroundImage:
             'radial-gradient(circle, rgba(243,236,221,0.9) 0%, transparent 60%), radial-gradient(circle, rgba(243,236,221,0.7) 0%, transparent 55%)',
@@ -174,7 +174,7 @@ export default function TankEffects() {
       {SUSPENDED_PARTICLES.map((p) => (
         <span
           key={p.key}
-          className="absolute"
+          className="absolute motion-ambient"
           style={{
             left: p.left,
             bottom: '-3%',
@@ -197,7 +197,7 @@ export default function TankEffects() {
         return (
           <span
             key={i}
-            className="absolute animate-bubble-rise"
+            className="absolute animate-bubble-rise motion-ambient"
             style={{
               left: b.left,
               width: b.size,
@@ -218,7 +218,7 @@ export default function TankEffects() {
                 duration/delay as the rise, so it brightens right as it
                 passes through the beam and fades back right after. */}
             <span
-              className="absolute inset-0 block"
+              className="absolute inset-0 block motion-ambient"
               style={{
                 borderRadius: i % 2 === 0 ? '48% 52% 51% 49% / 52% 48% 53% 47%' : '52% 48% 49% 51% / 47% 53% 48% 52%',
                 background: `
@@ -241,7 +241,7 @@ export default function TankEffects() {
                 lane never crosses a ray. */}
             {b.beam > 0 && (
               <span
-                className="absolute block"
+                className="absolute block motion-ambient"
                 style={{
                   inset: '-35%',
                   borderRadius: '50%',
@@ -258,7 +258,7 @@ export default function TankEffects() {
       {motes.map((m, i) => (
         <span
           key={i}
-          className="absolute rounded-full bg-cream/40 animate-mote-drift"
+          className="absolute rounded-full bg-cream/40 animate-mote-drift motion-ambient"
           style={{
             left: m.left,
             top: m.top,

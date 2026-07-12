@@ -128,7 +128,7 @@ export default function TankDecor() {
         {PLANTS.map((plant) => (
           <div
             key={plant.file}
-            className="absolute inset-0"
+            className="absolute inset-0 motion-ambient"
             style={{ transformOrigin: plant.originPct, transform: plant.restTransform, animation: plant.animation }}
           >
             <img
@@ -179,7 +179,7 @@ export default function TankDecor() {
           {CAUSTIC_BLOBS.map((blob, index) => (
             <div
               key={index}
-              className="absolute blur-md"
+              className="absolute blur-md motion-ambient"
               style={{
                 left: blob.left,
                 top: blob.top,

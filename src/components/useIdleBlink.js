@@ -13,7 +13,15 @@ function randomBetween(min, max) {
   return min + Math.random() * (max - min)
 }
 
-export function useIdleBlink(canBlink) {
+// minDurationMs/maxDurationMs let a rig shorten the closed-eye hold below
+// the default 120-180ms — e.g. turtle has no separate eyelid layer and
+// blinks by briefly swapping to its full face-sleepy expression, so its
+// blink needs to be quicker than a normal eyelid close to still read as a
+// blink instead of a mood change.
+export function useIdleBlink(canBlink, {
+  minDurationMs = BLINK_MIN_DURATION_MS,
+  maxDurationMs = BLINK_MAX_DURATION_MS,
+} = {}) {
   const [isBlinking, setIsBlinking] = useState(false)
   const timeoutRef = useRef(null)
 
@@ -29,13 +37,13 @@ export function useIdleBlink(canBlink) {
         timeoutRef.current = setTimeout(() => {
           setIsBlinking(false)
           scheduleNextBlink()
-        }, randomBetween(BLINK_MIN_DURATION_MS, BLINK_MAX_DURATION_MS))
+        }, randomBetween(minDurationMs, maxDurationMs))
       }, randomBetween(BLINK_MIN_INTERVAL_MS, BLINK_MAX_INTERVAL_MS))
     }
 
     scheduleNextBlink()
     return () => clearTimeout(timeoutRef.current)
-  }, [canBlink])
+  }, [canBlink, minDurationMs, maxDurationMs])
 
   return isBlinking
 }

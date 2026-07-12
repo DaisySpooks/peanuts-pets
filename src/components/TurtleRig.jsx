@@ -11,14 +11,16 @@ import { useIdleBlink } from './useIdleBlink.js'
 // flipper-back-left), so that is simply omitted rather than invented.
 const BASE_LAYERS = ['flipper-back-right', 'flipper-front-left', 'shell', 'head', 'flipper-front-right']
 
-// Blink: attempted using the same brief flash timing as axolotl/betta
-// (useIdleBlink — ~120-180ms, every 3-6s), briefly swapping to
-// `face-sleepy` since there is no separate eye layer to blink in
-// isolation. This is inherently riskier than a real eyes-open/eyes-closed
-// swap: `face-sleepy` is a full alternate expression, not a fast eye-close,
-// and it already carries its own meaning as the genuine low-energy state.
-// Gated off during eating/play so it can never override those expressions.
-// See the report for whether this reads as a blink or too sleepy.
+// Blink: swaps to `face-sleepy` since there is no separate eye layer to
+// blink in isolation. This is inherently riskier than a real
+// eyes-open/eyes-closed swap: `face-sleepy` is a full alternate expression,
+// not a fast eye-close, and it already carries its own meaning as the
+// genuine low-energy state. At the shared 120-180ms duration this read as a
+// brief mood change rather than a blink, so it's shortened well below that
+// (see TURTLE_BLINK_MIN/MAX_DURATION_MS below) — closer to the fastest part
+// of a real blink, so the sleepy face flashes and clears before it
+// registers as a distinct expression. Gated off during eating/play so it
+// can never override those expressions.
 
 // Gentle flipper motion. Reuses the existing generic wobble keyframes
 // (gill-drift-* / limb-float-*, already registered in tailwind.config.js
@@ -35,12 +37,13 @@ const FLIPPER_MOTION = {
   'flipper-front-right': { keyframe: 'limb-float-a', duration: '4.4s', delay: '0.8s', origin: '60% 57%' },
 }
 
-function flipperLayerStyle(layer) {
+function flipperLayerStyle(layer, jitterSeconds = 0) {
   const motion = FLIPPER_MOTION[layer]
   if (!motion) return {}
+  const totalDelaySeconds = parseFloat(motion.delay) + jitterSeconds
   return {
     transformOrigin: motion.origin,
-    animation: `${motion.keyframe} ${motion.duration} ease-in-out ${motion.delay} infinite`,
+    animation: `${motion.keyframe} ${motion.duration} ease-in-out ${totalDelaySeconds}s infinite`,
   }
 }
 
@@ -72,9 +75,28 @@ const PETTING_REACTION_DURATION_MS = 700
 const PETTING_INVITE_MIN_INTERVAL_MS = 15000
 const PETTING_INVITE_MAX_INTERVAL_MS = 20000
 const PETTING_INVITE_DURATION_MS = 1100
+// Shorter/softer than useIdleBlink's shared 120-180ms default — see the
+// blink comment above BASE_LAYERS for why turtle needs its own range.
+const TURTLE_BLINK_MIN_DURATION_MS = 80
+const TURTLE_BLINK_MAX_DURATION_MS = 110
 
 function randomBetween(min, max) {
   return min + Math.random() * (max - min)
+}
+
+// Continuous idle loops (body bob, flipper float) all start at
+// animation-delay: 0 by default, so every mount begins perfectly in phase —
+// on repeat viewing this reads as a mechanical, animatronic cycle rather
+// than a living creature. Each loop gets its own small negative starting
+// delay, generated once per mount and held for the component's lifetime, so
+// loops appear to already be mid-cycle and never restart in sync with each
+// other. The existing per-flipper stagger (FLIPPER_MOTION delays) is
+// preserved — this jitter is added on top of it.
+// Duration/amplitude/keyframes/easing are untouched.
+const IDLE_LOOP_DELAY_JITTER_MAX_S = 2
+
+function randomNegativeDelaySeconds(maxSeconds) {
+  return -(Math.random() * maxSeconds)
 }
 
 function useEatingWindow(isEating) {
@@ -208,7 +230,7 @@ export default function TurtleRig({
   onPetPersist,
   name,
 }) {
-  const bob = mood === 'happy' ? 'animate-pet-bob' : ''
+  const bob = mood === 'happy' ? 'animate-pet-bob motion-ambient' : ''
   const isEatingHeld = useEatingWindow(isEating)
   const face = getTurtleFace(mood, stats, isEatingHeld, isPlaying)
   const [isChomping, setIsChomping] = useState(false)
@@ -229,6 +251,16 @@ export default function TurtleRig({
   const [optimisticLastPettedAt, setOptimisticLastPettedAt] = useState(null)
   const [pettingAvailabilityNowMs, setPettingAvailabilityNowMs] = useState(() => Date.now())
   const pettingAvailabilityTimeoutRef = useRef(null)
+  const idleLoopDelaysRef = useRef(null)
+  if (idleLoopDelaysRef.current === null) {
+    idleLoopDelaysRef.current = {
+      bob: randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      'flipper-back-right': randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      'flipper-front-left': randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      'flipper-front-right': randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+    }
+  }
+  const idleLoopDelays = idleLoopDelaysRef.current
 
   // Detect the falling edge of isFeeding (feeding just ended) and play a
   // brief release animation instead of letting the feed pose disappear and
@@ -280,7 +312,7 @@ export default function TurtleRig({
   const happiness = typeof stats.happiness === 'number' ? stats.happiness : null
   const isSleepy = mood === 'sleepy' || mood === 'tired' || mood === 'resting'
     || (happiness !== null && happiness <= SLEEPY_HAPPINESS_THRESHOLD)
-  const canIdleAnimate = !isFeeding && !isPlaying && !isCleaning && !isReleasingFeed && !isEating && !isChomping && !isSleepy
+  const canIdleAnimate = !isFeeding && !isPlaying && !isCleaning && !isReleasingFeed && !isEating && !isChomping && !isSleepy && !isPetting
   const activeIdleAnimation = canIdleAnimate ? idleAnimation : null
   const effectiveLastPettedAt = optimisticLastPettedAt ?? lastPettedAt
   const lastPettedMs = effectiveLastPettedAt ? new Date(effectiveLastPettedAt).getTime() : Number.NaN
@@ -377,7 +409,10 @@ export default function TurtleRig({
   // useEatingWindow), which would otherwise leave a gap early in feeding
   // where blink could still fire and interfere.
   const canBlink = !isFeeding && !isPlaying && !isCleaning && !isReleasingFeed && !isSleepy && !activeIdleAnimation && !isPetting
-  const isBlinking = useIdleBlink(canBlink)
+  const isBlinking = useIdleBlink(canBlink, {
+    minDurationMs: TURTLE_BLINK_MIN_DURATION_MS,
+    maxDurationMs: TURTLE_BLINK_MAX_DURATION_MS,
+  })
   const displayFace = isPetting ? 'face-happy' : isChomping ? 'face-sleepy' : isBlinking ? 'face-sleepy' : face
   const layers = [...BASE_LAYERS, displayFace]
 
@@ -462,6 +497,7 @@ export default function TurtleRig({
       className={`absolute left-1/2 top-[54%] w-[clamp(4.75rem,26%,6.5rem)] -translate-x-1/2 -translate-y-1/2 sm:w-[clamp(5.5rem,24%,8rem)] md:w-[clamp(6rem,20%,14rem)] ${bob}`}
       role="img"
       aria-label={`${name || 'Your turtle'}, mood: ${mood}`}
+      style={bob ? { animationDelay: `${idleLoopDelays.bob}s` } : undefined}
     >
       <style>{TURTLE_KEYFRAMES}</style>
       <div className="relative aspect-[503/410] w-full drop-shadow-lg" style={actionStyle}>
@@ -474,8 +510,8 @@ export default function TurtleRig({
             <img
               src={`/assets/turtle/${layer}.png`}
               alt=""
-              className="absolute inset-0 h-full w-full"
-              style={flipperLayerStyle(layer)}
+              className="absolute inset-0 h-full w-full motion-ambient"
+              style={flipperLayerStyle(layer, idleLoopDelays[layer] ?? 0)}
             />
           </span>
         ))}

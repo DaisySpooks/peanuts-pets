@@ -68,6 +68,19 @@ function randomBetween(min, max) {
   return min + Math.random() * (max - min)
 }
 
+// Continuous idle loops (body bob, tail/gill sway, limb float) all start at
+// animation-delay: 0 by default, so every mount begins perfectly in phase —
+// on repeat viewing this reads as a mechanical, animatronic cycle rather
+// than a living creature. Each loop gets its own small negative starting
+// delay, generated once per mount and held for the component's lifetime, so
+// loops appear to already be mid-cycle and never restart in sync with each
+// other. Duration/amplitude/keyframes/easing are untouched.
+const IDLE_LOOP_DELAY_JITTER_MAX_S = 2
+
+function randomNegativeDelaySeconds(maxSeconds) {
+  return -(Math.random() * maxSeconds)
+}
+
 // Schedules an occasional blink (closed eyes for ~120-180ms) on a
 // randomized 3-6s interval whenever blinking is currently allowed.
 function useIdleBlink(canBlink) {
@@ -188,7 +201,7 @@ export default function PetRenderer({
   isCleaning = false,
   onPetPersist,
 }) {
-  const bob = mood === 'happy' ? 'animate-pet-bob' : ''
+  const bob = mood === 'happy' ? 'animate-pet-bob motion-ambient' : ''
   const face = getAxolotlFaceState(mood, stats, isEating, isPlaying)
   const [isChomping, setIsChomping] = useState(false)
   const chompStartTimeoutRef = useRef(null)
@@ -208,6 +221,20 @@ export default function PetRenderer({
   const [optimisticLastPettedAt, setOptimisticLastPettedAt] = useState(null)
   const [pettingAvailabilityNowMs, setPettingAvailabilityNowMs] = useState(() => Date.now())
   const pettingAvailabilityTimeoutRef = useRef(null)
+  const idleLoopDelaysRef = useRef(null)
+  if (idleLoopDelaysRef.current === null) {
+    idleLoopDelaysRef.current = {
+      bob: randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      tail: randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      gillsLeft: randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      gillsRight: randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      legBackLeft: randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      legFrontLeft: randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      legBackRight: randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+      legFrontRight: randomNegativeDelaySeconds(IDLE_LOOP_DELAY_JITTER_MAX_S),
+    }
+  }
+  const idleLoopDelays = idleLoopDelaysRef.current
 
   // Detect the falling edge of isFeeding (feeding just ended) and play a
   // brief release animation instead of letting the feed pose disappear and
@@ -259,7 +286,7 @@ export default function PetRenderer({
   const happiness = typeof stats.happiness === 'number' ? stats.happiness : null
   const isSleepy = mood === 'sleepy' || mood === 'tired' || mood === 'resting'
     || (happiness !== null && happiness <= SLEEPY_HAPPINESS_THRESHOLD)
-  const canIdleAnimate = !isFeeding && !isPlaying && !isCleaning && !isEating && !isReleasingFeed && !isChomping && !isSleepy
+  const canIdleAnimate = !isFeeding && !isPlaying && !isCleaning && !isEating && !isReleasingFeed && !isChomping && !isSleepy && !isPetting
   const activeIdleAnimation = canIdleAnimate ? idleAnimation : null
   const effectiveLastPettedAt = optimisticLastPettedAt ?? lastPettedAt
   const lastPettedMs = effectiveLastPettedAt ? new Date(effectiveLastPettedAt).getTime() : Number.NaN
@@ -444,24 +471,25 @@ export default function PetRenderer({
       className={`absolute left-1/2 top-[54%] w-[clamp(4.75rem,26%,6.5rem)] -translate-x-1/2 -translate-y-1/2 sm:w-[clamp(5.5rem,24%,8rem)] md:w-[clamp(6rem,20%,14rem)] ${bob}`}
       role="img"
       aria-label={`Mochi the axolotl, mood: ${mood}`}
+      style={bob ? { animationDelay: `${idleLoopDelays.bob}s` } : undefined}
     >
       <style>{AXOLOTL_KEYFRAMES}</style>
       <div className="relative aspect-[503/410] w-full drop-shadow-lg" style={actionStyle}>
         {layers.map((layer, index) => {
           const anim = layer === 'tail'
-            ? { className: ' animate-tail-sway', style: { transformOrigin: '61% 54%' } }
+            ? { className: ' animate-tail-sway motion-ambient', style: { transformOrigin: '61% 54%', animationDelay: `${idleLoopDelays.tail}s` } }
             : layer === 'gills-left'
-            ? { className: ' animate-gill-drift-left', style: { transformOrigin: '25% 37%' } }
+            ? { className: ' animate-gill-drift-left motion-ambient', style: { transformOrigin: '25% 37%', animationDelay: `${idleLoopDelays.gillsLeft}s` } }
             : layer === 'gills-right'
-            ? { className: ' animate-gill-drift-right', style: { transformOrigin: '42% 64%' } }
+            ? { className: ' animate-gill-drift-right motion-ambient', style: { transformOrigin: '42% 64%', animationDelay: `${idleLoopDelays.gillsRight}s` } }
             : layer === 'leg-back-left'
-            ? { className: ' animate-limb-float-back-left', style: { transformOrigin: '51% 62%' } }
+            ? { className: ' animate-limb-float-back-left motion-ambient', style: { transformOrigin: '51% 62%', animationDelay: `${idleLoopDelays.legBackLeft}s` } }
             : layer === 'leg-front-left'
-            ? { className: ' animate-limb-float-front-left', style: { transformOrigin: '26% 61%' } }
+            ? { className: ' animate-limb-float-front-left motion-ambient', style: { transformOrigin: '26% 61%', animationDelay: `${idleLoopDelays.legFrontLeft}s` } }
             : layer === 'leg-back-right'
-            ? { className: ' animate-limb-float-back-right', style: { transformOrigin: '68% 60%' } }
+            ? { className: ' animate-limb-float-back-right motion-ambient', style: { transformOrigin: '68% 60%', animationDelay: `${idleLoopDelays.legBackRight}s` } }
             : layer === 'leg-front-right'
-            ? { className: ' animate-limb-float-front-right', style: { transformOrigin: '46% 62%' } }
+            ? { className: ' animate-limb-float-front-right motion-ambient', style: { transformOrigin: '46% 62%', animationDelay: `${idleLoopDelays.legFrontRight}s` } }
             : { className: '', style: {} }
 
           return (

@@ -11,3 +11,22 @@ body,
 body {
   background-color: #0e0d0c;
 }
+
+/* Continuous ambient loops (pet body bob/sway, tail/fin/gill/limb idle
+   motion, plant sway, bubbles, suspended water particles, caustics) opt
+   into this marker class. Short one-shot action feedback (feed/play/
+   clean/petting reactions, idle personality animations, stat bars, etc.)
+   deliberately does NOT use this class, so it's untouched here.
+   Paused rather than removed: several of these elements (bubbles,
+   suspended particles, caustic blobs) only get their resting
+   opacity/position/shape from their own keyframes, with no separate
+   static fallback declared elsewhere — `animation: none` would snap them
+   to CSS-initial values (opacity 1, transform none, background-position
+   0 0), which can look like a visual bug (e.g. a bubble popping fully
+   opaque at the wrong spot). Pausing freezes each element exactly where
+   it already was, so the scene stays visually stable with zero motion. */
+@media (prefers-reduced-motion: reduce) {
+  .motion-ambient {
+    animation-play-state: paused !important;
+  }
+}
