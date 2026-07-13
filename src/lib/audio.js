@@ -50,6 +50,7 @@ let audioEnabled = loadAudioEnabled()
 // mute state, so re-enabling audio later knows whether it's safe to call
 // play() without hitting the browser's autoplay block.
 let hasInteracted = false
+let pageIsActive = typeof document === 'undefined' ? true : document.visibilityState !== 'hidden'
 
 export function isAudioEnabled() {
   return audioEnabled
@@ -61,8 +62,8 @@ export function setAudioEnabled(enabled) {
 
   if (!enabled) {
     stopAmbience()
-  } else if (hasInteracted) {
-    startAmbience()
+  } else if (hasInteracted && pageIsActive) {
+    resumeAmbience()
   }
 }
 
@@ -237,6 +238,8 @@ const FADE_STEP_MS = 50
 let ambienceTracks = null
 let ambienceActiveIndex = 0
 let ambienceStarted = false
+let ambienceSuspended = false
+let ambienceResumeOnActive = false
 // Guards against triggering more than one crossfade per lap of a track.
 let ambienceCrossfadeStarted = false
 
@@ -383,9 +386,80 @@ export function startAmbience() {
   }
 }
 
+function pauseAmbience() {
+  cancelAllFades()
+
+  const shouldResumeOnActive = ambienceStarted || ambienceResumeOnActive
+  ambienceStarted = false
+  ambienceCrossfadeStarted = false
+  ambienceSuspended = shouldResumeOnActive
+  ambienceResumeOnActive = shouldResumeOnActive
+
+  if (!ambienceTracks) return
+
+  const activeTrack = ambienceTracks[ambienceActiveIndex]
+  ambienceTracks.forEach((track, index) => {
+    track.pause()
+    if (index !== ambienceActiveIndex) {
+      track.currentTime = 0
+      track.volume = 0
+    }
+  })
+
+  if (activeTrack) {
+    activeTrack.volume = Math.min(activeTrack.volume || 0, AMBIENCE_VOLUME)
+  }
+}
+
+function resumeAmbience() {
+  if (!hasAudioSupport || !audioEnabled || !hasInteracted || !pageIsActive || ambienceStarted) return
+
+  if (!ambienceSuspended || !ambienceResumeOnActive) {
+    startAmbience()
+    return
+  }
+
+  const tracks = getAmbienceTracks()
+  if (!tracks) return
+
+  const activeTrack = tracks[ambienceActiveIndex]
+  const inactiveTrack = tracks[ambienceActiveIndex === 0 ? 1 : 0]
+  if (!activeTrack) return
+
+  inactiveTrack.pause()
+  inactiveTrack.currentTime = 0
+  inactiveTrack.volume = 0
+
+  ambienceStarted = true
+  ambienceSuspended = false
+  ambienceCrossfadeStarted = false
+
+  const resumeFrom = activeTrack.currentTime > 0 ? 0 : activeTrack.volume
+  activeTrack.volume = resumeFrom
+  const playResult = activeTrack.play()
+  const afterResume = () => {
+    if (!audioEnabled || !pageIsActive) {
+      pauseAmbience()
+      return
+    }
+    fadeVolume(activeTrack, activeTrack.volume, AMBIENCE_VOLUME, AMBIENCE_FADE_MS)
+  }
+
+  if (playResult?.then) {
+    playResult.then(afterResume).catch(() => {
+      ambienceStarted = false
+      ambienceSuspended = true
+    })
+  } else {
+    afterResume()
+  }
+}
+
 export function stopAmbience() {
   cancelAllFades()
   ambienceStarted = false
+  ambienceSuspended = false
+  ambienceResumeOnActive = false
   ambienceCrossfadeStarted = false
   ambienceActiveIndex = 0
 
@@ -401,19 +475,68 @@ export function stopAmbience() {
 // page, so ambience is kicked off from the first click/tap/keypress
 // anywhere rather than requiring each screen to wire this up itself.
 function attachFirstInteractionListener() {
-  if (typeof document === 'undefined') return
+  if (typeof document === 'undefined') return () => {}
 
   const events = ['pointerdown', 'keydown']
   const handleFirstInteraction = () => {
     hasInteracted = true
-    startAmbience()
+    if (pageIsActive) {
+      resumeAmbience()
+    }
     if (ambienceStarted || !audioEnabled) {
       events.forEach((event) => document.removeEventListener(event, handleFirstInteraction))
     }
   }
 
   events.forEach((event) => document.addEventListener(event, handleFirstInteraction))
+  return () => {
+    events.forEach((event) => document.removeEventListener(event, handleFirstInteraction))
+  }
+}
+
+let audioLifecycleListenerCount = 0
+let detachAudioLifecycleListeners = null
+
+function attachAudioLifecycleListeners() {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return () => {}
+
+  const detachFirstInteractionListener = attachFirstInteractionListener()
+  const handleVisibilityChange = () => {
+    pageIsActive = document.visibilityState !== 'hidden'
+    if (pageIsActive) {
+      resumeAmbience()
+      return
+    }
+    pauseAmbience()
+  }
+  const handlePageHide = () => {
+    pageIsActive = false
+    pauseAmbience()
+  }
+
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('pagehide', handlePageHide)
+
+  return () => {
+    detachFirstInteractionListener()
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+    window.removeEventListener('pagehide', handlePageHide)
+  }
+}
+
+export function setupAudioLifecycle() {
+  audioLifecycleListenerCount += 1
+  if (audioLifecycleListenerCount === 1) {
+    detachAudioLifecycleListeners = attachAudioLifecycleListeners()
+  }
+
+  return () => {
+    audioLifecycleListenerCount = Math.max(0, audioLifecycleListenerCount - 1)
+    if (audioLifecycleListenerCount === 0 && detachAudioLifecycleListeners) {
+      detachAudioLifecycleListeners()
+      detachAudioLifecycleListeners = null
+    }
+  }
 }
 
 preloadAll()
-attachFirstInteractionListener()

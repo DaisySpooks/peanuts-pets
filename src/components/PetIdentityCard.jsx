@@ -1,3 +1,5 @@
+import { MobileCardAuthMenu } from './MobileAuthMenu.jsx'
+
 function capitalize(text) {
   return text[0].toUpperCase() + text.slice(1)
 }
@@ -50,12 +52,11 @@ export default function PetIdentityCard({ name, species, temperament }) {
 // Compact mobile counterpart to the nameplate above — same color language
 // (border/gradient/badge) as the desktop card, reused rather than
 // duplicated, but a low-height horizontal layout that sits above the tank
-// instead of beside it. Logout/Admin remain their own fixed-position
-// controls (see App.jsx AuthControls); this card just reserves right-hand
-// padding so its text never sits under them.
-export function MobilePetIdentityCard({ name, species, temperament }) {
+// instead of beside it. The top-right auth menu now lives inside this card,
+// so the text block keeps a reserved right edge for the trigger button.
+export function MobilePetIdentityCard({ name, species, temperament, authMenuProps = null }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border-2 border-[#7a4f22] bg-gradient-to-b from-[#5f4a34] via-[#42321f] to-[#2c2014] py-3 pl-3.5 pr-24 shadow-[0_14px_28px_-14px_rgba(10,6,2,0.65),inset_0_1px_0_rgba(255,224,170,0.16)] ring-1 ring-inset ring-[#c9a44c]/15">
+    <div className="relative overflow-visible rounded-2xl border-2 border-[#7a4f22] bg-gradient-to-b from-[#5f4a34] via-[#42321f] to-[#2c2014] py-3 pl-3.5 pr-20 shadow-[0_14px_28px_-14px_rgba(10,6,2,0.65),inset_0_1px_0_rgba(255,224,170,0.16)] ring-1 ring-inset ring-[#c9a44c]/15">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 opacity-[0.05] mix-blend-overlay"
@@ -72,6 +73,7 @@ export function MobilePetIdentityCard({ name, species, temperament }) {
       {temperament ? (
         <p className="relative mt-1 text-[11px] text-cream/45">{capitalize(temperament)}</p>
       ) : null}
+      {authMenuProps ? <MobileCardAuthMenu {...authMenuProps} /> : null}
     </div>
   )
 }

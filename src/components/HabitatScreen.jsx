@@ -63,7 +63,16 @@ function getPetStatusText({ isFeeding, isCleaning, isPlaying, stats }) {
   return 'Just floating.'
 }
 
-export default function HabitatScreen({ pet, petType, colour, stats, actions, onActionPersist, onPetPersist }) {
+export default function HabitatScreen({
+  pet,
+  petType,
+  colour,
+  stats,
+  actions,
+  onActionPersist,
+  onPetPersist,
+  mobileIdentityAuthMenu = null,
+}) {
   const statsForMood = Object.fromEntries(stats.map((s) => [s.key, s.value]))
   const careStats = stats.filter((stat) => stat.key !== 'affection')
   const affectionStat = stats.find((stat) => stat.key === 'affection') ?? null
@@ -180,7 +189,12 @@ export default function HabitatScreen({ pet, petType, colour, stats, actions, on
       </div>
       <div className="relative z-10 mx-auto flex h-full max-w-6xl flex-col gap-3 px-4 py-4 md:gap-3 md:py-5">
         <header className="flex-none md:hidden">
-          <MobilePetIdentityCard name={pet.name} species={pet.species} temperament={pet.temperament} />
+          <MobilePetIdentityCard
+            name={pet.name}
+            species={pet.species}
+            temperament={pet.temperament}
+            authMenuProps={mobileIdentityAuthMenu}
+          />
         </header>
 
         <main
