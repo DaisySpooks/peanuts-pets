@@ -210,6 +210,9 @@ export default function PetRenderer({
 }) {
   const isCelebrationMode = presentationMode === 'celebration'
   const bob = mood === 'happy' ? 'animate-pet-bob motion-ambient' : ''
+  const sizeClass = isCelebrationMode
+    ? 'w-[clamp(12rem,62vw,25rem)] sm:w-[clamp(15rem,55vw,31rem)] md:w-[clamp(18rem,44vw,37rem)]'
+    : 'w-[clamp(4.75rem,26%,6.5rem)] sm:w-[clamp(5.5rem,24%,8rem)] md:w-[clamp(6rem,20%,14rem)]'
   const face = getAxolotlFaceState(mood, stats, expression, isEating)
   const [isChomping, setIsChomping] = useState(false)
   const chompStartTimeoutRef = useRef(null)
@@ -492,7 +495,7 @@ export default function PetRenderer({
 
   return (
     <div
-      className={`absolute left-1/2 top-[54%] w-[clamp(4.75rem,26%,6.5rem)] -translate-x-1/2 -translate-y-1/2 sm:w-[clamp(5.5rem,24%,8rem)] md:w-[clamp(6rem,20%,14rem)] ${bob}`}
+      className={`absolute left-1/2 top-[54%] ${sizeClass} -translate-x-1/2 -translate-y-1/2 ${bob}`}
       role="img"
       aria-label={`Mochi the axolotl, mood: ${mood}`}
       style={bob ? { animationDelay: `${idleLoopDelays.bob}s` } : undefined}

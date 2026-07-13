@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import AquariumBackground from './AquariumBackground.jsx'
 import PetRig from './PetRig.jsx'
 import { playAffection } from '../lib/audio.js'
 import { PET_EXPRESSIONS } from './useTemporaryExpression.js'
@@ -43,30 +42,51 @@ export default function FirstAdoptionCelebration({ pet, onComplete }) {
         isExiting ? 'opacity-0 duration-[550ms]' : 'opacity-100 duration-300'
       }`}
     >
-      <div className="absolute inset-0 bg-[#0e0b09]/94" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(82,147,141,0.18)_0%,rgba(82,147,141,0.08)_30%,rgba(14,11,9,0)_68%)]" />
-      <AquariumBackground />
+      <div
+        className="absolute inset-0 transition-[background-color,backdrop-filter] duration-[550ms]"
+        style={{
+          backgroundColor: isExiting ? 'rgba(14, 11, 9, 0.06)' : 'rgba(14, 11, 9, 0.26)',
+          backdropFilter: isExiting ? 'blur(0px)' : 'blur(14px)',
+          WebkitBackdropFilter: isExiting ? 'blur(0px)' : 'blur(14px)',
+        }}
+      />
+      <div
+        className="absolute inset-0 transition-opacity duration-[550ms]"
+        style={{
+          opacity: isExiting ? 0.18 : 1,
+          background:
+            'radial-gradient(ellipse at center, rgba(82,147,141,0.10) 0%, rgba(82,147,141,0.04) 34%, rgba(14,11,9,0) 68%)',
+        }}
+      />
+      <div
+        className="absolute inset-0 transition-opacity duration-[550ms]"
+        style={{
+          opacity: isExiting ? 0 : 1,
+          background:
+            'radial-gradient(120% 90% at 50% 44%, transparent 40%, rgba(0,0,0,0.28) 100%)',
+        }}
+      />
 
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-5 py-10 text-cream">
-        <div className="w-full max-w-4xl">
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-6 text-cream sm:px-5 sm:py-8">
+        <div className="flex w-full max-w-6xl flex-col items-center justify-center">
           <div className="text-center">
-            <p className="text-base font-semibold tracking-[0.08em] text-gold drop-shadow-[0_0_18px_rgba(201,164,76,0.18)] sm:text-lg">
-              🥜 20 Nutshells spent
-            </p>
-            <p className="mt-3 text-[1.45rem] font-semibold leading-tight text-cream sm:text-[1.9rem]">
+            <p className="text-[1rem] font-medium leading-tight text-cream/88 sm:text-[1.1rem] md:text-[1.2rem]">
               ✨ A new friend has entered the Reserve.
+            </p>
+            <p className="mt-2 text-[0.78rem] font-semibold tracking-[0.08em] text-gold/86 sm:text-[0.82rem]">
+              🥜 20 Nutshells spent
             </p>
           </div>
 
-          <div className="relative mx-auto mt-10 flex aspect-[4/3] w-full max-w-[22rem] items-center justify-center sm:mt-12 sm:max-w-[26rem] md:max-w-[30rem]">
-            <div className="absolute inset-[18%] rounded-full bg-[radial-gradient(circle,rgba(201,164,76,0.22)_0%,rgba(95,167,160,0.16)_38%,rgba(95,167,160,0)_72%)] blur-3xl" />
-            <div className="absolute inset-x-[30%] bottom-[8%] h-[12%] rounded-[999px] bg-black/45 blur-xl" />
-            <span className="absolute bottom-[18%] left-[26%] h-2.5 w-2.5 rounded-full border border-cream/35 bg-cream/10 animate-bubble-rise motion-ambient [animation-delay:0s]" />
-            <span className="absolute bottom-[14%] left-[42%] h-1.5 w-1.5 rounded-full border border-cream/30 bg-cream/10 animate-bubble-rise motion-ambient [animation-delay:0.5s]" />
-            <span className="absolute bottom-[20%] right-[28%] h-2 w-2 rounded-full border border-cream/35 bg-cream/10 animate-bubble-rise motion-ambient [animation-delay:1.1s]" />
-            <span className="absolute bottom-[15%] right-[39%] h-1 w-1 rounded-full border border-cream/30 bg-cream/10 animate-bubble-rise motion-ambient [animation-delay:1.7s]" />
+          <div className="relative mx-auto mt-4 flex aspect-[4/3] w-full max-w-[62rem] items-center justify-center sm:mt-5 md:mt-6">
+            <div className="absolute inset-[20%] rounded-full bg-[radial-gradient(circle,rgba(201,164,76,0.24)_0%,rgba(95,167,160,0.18)_34%,rgba(95,167,160,0)_72%)] blur-3xl sm:blur-[72px]" />
+            <div className="absolute inset-x-[37%] bottom-[10%] h-[7%] rounded-[999px] bg-black/38 blur-2xl sm:bottom-[12%] sm:h-[8%]" />
+            <span className="absolute bottom-[24%] left-[35%] h-3 w-3 rounded-full border border-cream/35 bg-cream/10 animate-bubble-rise motion-ambient [animation-delay:0s]" />
+            <span className="absolute bottom-[20%] left-[43%] h-2 w-2 rounded-full border border-cream/30 bg-cream/10 animate-bubble-rise motion-ambient [animation-delay:0.5s]" />
+            <span className="absolute bottom-[25%] right-[35%] h-2.5 w-2.5 rounded-full border border-cream/35 bg-cream/10 animate-bubble-rise motion-ambient [animation-delay:1.1s]" />
+            <span className="absolute bottom-[21%] right-[43%] h-1.5 w-1.5 rounded-full border border-cream/30 bg-cream/10 animate-bubble-rise motion-ambient [animation-delay:1.7s]" />
 
-            <div className="relative h-full w-full">
+            <div className="relative h-full w-full overflow-visible">
               <PetRig
                 species={pet?.petType}
                 colour={pet?.colour ?? null}
