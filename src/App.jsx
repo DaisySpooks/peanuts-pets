@@ -10,22 +10,41 @@ import { getMyPet, performPetAction, performPetting } from './petApi.js'
 import { PET_OPTIONS } from './petOptions.js'
 import { defaultStats } from './mockData.js'
 import { buildPetActions } from './petActions.js'
+import { isAudioEnabled, toggleAudio } from './lib/audio.js'
 
 // Fixed top-right controls shown across every authenticated screen except
 // AdminScreen itself (which has its own nav). Logout takes the slot the
 // Admin button used to occupy alone; Admin now stacks directly beneath it
 // for admins. Same styling language (border-gold/30, bg-[#171513]) and the
 // same fixed positioning/breakpoint behavior as the button this replaces —
-// only the layout changed, not auth/logout/permission logic.
+// only the layout changed, not auth/logout/permission logic. The audio
+// toggle sits beside Logout in the same row, on both desktop and mobile
+// since this whole control cluster isn't responsively repositioned.
 function AuthControls({ hasAdminAccess, onAdminClick }) {
   const controlButtonClassName =
     'rounded-xl border border-gold/30 bg-[#171513] px-3 py-2 text-sm text-cream transition hover:border-gold/60 hover:bg-[#201c18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60'
+  const [audioEnabled, setAudioEnabledState] = useState(() => isAudioEnabled())
+
+  const handleToggleAudio = () => {
+    setAudioEnabledState(toggleAudio())
+  }
 
   return (
     <div className="fixed right-4 top-4 z-50 flex flex-col items-end gap-2">
-      <button type="button" onClick={logout} className={controlButtonClassName}>
-        Logout
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleToggleAudio}
+          aria-label={audioEnabled ? 'Mute audio' : 'Unmute audio'}
+          aria-pressed={audioEnabled}
+          className={controlButtonClassName}
+        >
+          {audioEnabled ? '🔊' : '🔇'}
+        </button>
+        <button type="button" onClick={logout} className={controlButtonClassName}>
+          Logout
+        </button>
+      </div>
       {hasAdminAccess ? (
         <button type="button" onClick={onAdminClick} className={controlButtonClassName}>
           Admin

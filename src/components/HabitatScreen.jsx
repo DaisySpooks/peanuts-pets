@@ -3,6 +3,7 @@ import TankStage from './TankStage.jsx'
 import StatBar, { AffectionBar } from './StatBar.jsx'
 import ActionCard from './ActionCard.jsx'
 import PetIdentityCard, { MobilePetIdentityCard } from './PetIdentityCard.jsx'
+import { playFoodDrop, playEating, playTankClean, playPlay } from '../lib/audio.js'
 
 // Pellet sinks toward the mouth over this long (matches the pellet-drop
 // animation duration in tailwind.config.js); mouth-eating only kicks in
@@ -11,6 +12,12 @@ import PetIdentityCard, { MobilePetIdentityCard } from './PetIdentityCard.jsx'
 const PELLET_DURATION_MS = 1800
 const EATING_START_MS = Math.round(PELLET_DURATION_MS * 0.72)
 const EATING_END_MS = PELLET_DURATION_MS + 300
+
+// The eating sound fires a beat after the bite animation starts (rather
+// than in the same instant) — the visual mouth movement reads slightly
+// ahead of the audio, and this small extra offset is what actually lines
+// the two up perceptually.
+const EATING_SOUND_EXTRA_DELAY_MS = 150
 
 const CLEANING_DURATION_MS = 1500
 
@@ -70,6 +77,7 @@ export default function HabitatScreen({ pet, petType, colour, stats, actions, on
   const pelletTimeoutRef = useRef(null)
   const eatingStartTimeoutRef = useRef(null)
   const eatingEndTimeoutRef = useRef(null)
+  const eatingSoundTimeoutRef = useRef(null)
   const cleaningTimeoutRef = useRef(null)
   const playingTimeoutRef = useRef(null)
   const statusText = getPetStatusText({ isFeeding, isCleaning, isPlaying, stats: statsForMood })
@@ -79,6 +87,7 @@ export default function HabitatScreen({ pet, petType, colour, stats, actions, on
     clearTimeout(pelletTimeoutRef.current)
     clearTimeout(eatingStartTimeoutRef.current)
     clearTimeout(eatingEndTimeoutRef.current)
+    clearTimeout(eatingSoundTimeoutRef.current)
     clearTimeout(cleaningTimeoutRef.current)
     clearTimeout(playingTimeoutRef.current)
   }, [])
@@ -87,9 +96,15 @@ export default function HabitatScreen({ pet, petType, colour, stats, actions, on
     if (pendingAction) return
 
     if (actionKey === 'feed') {
+      // Fired before any of the state/timer bookkeeping below so there's
+      // nothing sitting in front of it — a percussive "plop" sound reads as
+      // out of sync with the pellet if it lags the click at all.
+      playFoodDrop()
+
       clearTimeout(pelletTimeoutRef.current)
       clearTimeout(eatingStartTimeoutRef.current)
       clearTimeout(eatingEndTimeoutRef.current)
+      clearTimeout(eatingSoundTimeoutRef.current)
 
       setIsFeeding(true)
       setIsEating(false)
@@ -98,14 +113,23 @@ export default function HabitatScreen({ pet, petType, colour, stats, actions, on
       pelletTimeoutRef.current = setTimeout(() => setIsFeeding(false), PELLET_DURATION_MS)
       eatingStartTimeoutRef.current = setTimeout(() => setIsEating(true), EATING_START_MS)
       eatingEndTimeoutRef.current = setTimeout(() => setIsEating(false), EATING_END_MS)
+      // Sound trails the visual bite by a small extra beat (see
+      // EATING_SOUND_EXTRA_DELAY_MS) so it lines up perceptually instead of
+      // firing the instant the bite animation starts.
+      eatingSoundTimeoutRef.current = setTimeout(
+        playEating,
+        EATING_START_MS + EATING_SOUND_EXTRA_DELAY_MS,
+      )
     } else if (actionKey === 'clean') {
       clearTimeout(cleaningTimeoutRef.current)
       setIsCleaning(true)
       cleaningTimeoutRef.current = setTimeout(() => setIsCleaning(false), CLEANING_DURATION_MS)
+      playTankClean()
     } else if (actionKey === 'play') {
       clearTimeout(playingTimeoutRef.current)
       setIsPlaying(true)
       playingTimeoutRef.current = setTimeout(() => setIsPlaying(false), PLAYING_DURATION_MS)
+      playPlay()
     }
 
     setPendingAction(actionKey)

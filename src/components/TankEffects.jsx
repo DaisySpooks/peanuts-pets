@@ -401,7 +401,7 @@ export default function TankEffects() {
       {/* water shimmer sweep: wide, soft, slow-moving light band. Kept faint
           and slow so it reads as ambient caustic light drifting through the
           water, not a periodic glare/flash. */}
-      <div className="absolute inset-y-0 -left-2/3 w-2/3 -skew-x-12 bg-gradient-to-r from-transparent via-cream/[0.08] md:via-cream/[0.06] to-transparent animate-shimmer-sweep [animation-duration:26s]" />
+      <div className="absolute inset-y-0 -left-2/3 w-2/3 -skew-x-12 bg-gradient-to-r from-transparent via-cream/[0.08] md:via-cream/[0.06] to-transparent animate-shimmer-sweep motion-ambient [animation-duration:26s]" />
     </div>
   )
 }

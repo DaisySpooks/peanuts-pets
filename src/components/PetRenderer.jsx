@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { petAssetPath } from './petAssetPath.js'
+import { playPet, playAffection } from '../lib/audio.js'
 
 // Renders the layered axolotl. Swap this component's internals for a PixiJS
 // sprite pipeline later — TankStage, TankDecor, TankEffects, StatBar,
@@ -427,6 +428,9 @@ export default function PetRenderer({
 
   const handlePetting = () => {
     if (!canPet) return
+
+    playPet()
+    playAffection()
 
     clearTimeout(pettingTimeoutRef.current)
     clearTimeout(pettingInviteScheduleTimeoutRef.current)

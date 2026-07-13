@@ -14,8 +14,8 @@ export default function AquariumBackground() {
       {/* soft glow anchor behind the card so it doesn't float in empty space */}
       <div className="absolute left-1/2 top-1/2 h-[320px] w-[320px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold/[0.07] blur-3xl md:h-[560px] md:w-[560px] md:bg-gold/[0.06]" />
       <div className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-aqua/[0.10] blur-3xl md:h-[720px] md:w-[720px]" />
-      <div className="absolute -inset-x-10 top-1/3 h-40 -rotate-3 bg-gradient-to-r from-transparent via-cream/[0.03] to-transparent animate-shimmer-sweep" />
-      <div className="absolute -inset-x-10 top-2/3 h-32 rotate-2 bg-gradient-to-r from-transparent via-gold/[0.04] to-transparent animate-shimmer-sweep [animation-delay:6s]" />
+      <div className="absolute -inset-x-10 top-1/3 h-40 -rotate-3 bg-gradient-to-r from-transparent via-cream/[0.03] to-transparent animate-shimmer-sweep motion-ambient" />
+      <div className="absolute -inset-x-10 top-2/3 h-32 rotate-2 bg-gradient-to-r from-transparent via-gold/[0.04] to-transparent animate-shimmer-sweep motion-ambient [animation-delay:6s]" />
       <span className="absolute bottom-0 left-[12%] h-1.5 w-1.5 rounded-full bg-cream/40 animate-bubble-rise motion-ambient [animation-delay:0s]" />
       <span className="absolute bottom-0 left-[28%] h-1 w-1 rounded-full bg-cream/30 animate-bubble-rise motion-ambient [animation-delay:1.4s]" />
       <span className="absolute bottom-0 left-[65%] h-1.5 w-1.5 rounded-full bg-cream/30 animate-bubble-rise motion-ambient [animation-delay:2.6s]" />

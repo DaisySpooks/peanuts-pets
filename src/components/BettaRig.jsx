@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useIdleBlink } from './useIdleBlink.js'
 import { petAssetPath } from './petAssetPath.js'
+import { playPet, playAffection } from '../lib/audio.js'
 
 // Betta's split-face rig: a plain `head` base with separate eyes/mouth
 // layers on top, same pattern as the axolotl rig — but betta has no
@@ -451,6 +452,9 @@ export default function BettaRig({
 
   const handlePetting = () => {
     if (!canPet) return
+
+    playPet()
+    playAffection()
 
     clearTimeout(pettingTimeoutRef.current)
     clearTimeout(pettingInviteScheduleTimeoutRef.current)
