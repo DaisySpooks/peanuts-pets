@@ -70,7 +70,7 @@ export default function App() {
   const [viewingAdminScreen, setViewingAdminScreen] = useState(false)
   // undefined = not checked yet, null = checked, none saved, object = saved pet.
   const [pet, setPet] = useState(undefined)
-  const [petLoadError, setPetLoadError] = useState(false)
+  const [petLoadError, setPetLoadError] = useState(null)
   const [petReloadKey, setPetReloadKey] = useState(0)
 
   const hasAccess = accessGranted && !isCheckingAccess && !viewingAccessScreen
@@ -82,12 +82,12 @@ export default function App() {
     if (!hasAccess) return undefined
     let cancelled = false
     setPet(undefined)
-    setPetLoadError(false)
+    setPetLoadError(null)
     getMyPet()
       .then((result) => {
         if (!cancelled) {
           setPet(result)
-          setPetLoadError(false)
+          setPetLoadError(null)
         }
       })
       .catch((error) => {
@@ -96,7 +96,24 @@ export default function App() {
           setViewingAccessScreen(true)
           return
         }
-        setPetLoadError(true)
+        if (error.message === 'pet_payment_failed') {
+          setPetLoadError({
+            type: 'blocked_payment',
+            detail: null,
+          })
+          return
+        }
+        if (error.message === 'pet_create_in_progress') {
+          setPetLoadError({
+            type: 'create_in_progress',
+            detail: 'Please try again in a moment.',
+          })
+          return
+        }
+        setPetLoadError({
+          type: 'generic',
+          detail: null,
+        })
       })
     return () => {
       cancelled = true
@@ -114,11 +131,11 @@ export default function App() {
         myPet={pet && !petLoadError ? pet : null}
         onMyPetChange={(nextPet) => {
           setPet(nextPet)
-          setPetLoadError(false)
+          setPetLoadError(null)
         }}
         onMyPetDelete={() => {
           setPet(null)
-          setPetLoadError(false)
+          setPetLoadError(null)
         }}
         onBack={() => setViewingAdminScreen(false)}
       />
@@ -126,11 +143,15 @@ export default function App() {
   }
 
   if (pet === undefined || petLoadError) {
+    const handlePetReload = petLoadError?.type === 'blocked_payment'
+      ? undefined
+      : () => setPetReloadKey((value) => value + 1)
+
     return (
       <>
         <DesktopAuthControls hasAdminAccess={hasAdminAccess} onAdminClick={() => setViewingAdminScreen(true)} />
         <MobileFixedAuthMenu hasAdminAccess={hasAdminAccess} onAdminClick={() => setViewingAdminScreen(true)} />
-        <PetLoadingScreen error={petLoadError} onRetry={() => setPetReloadKey((value) => value + 1)} />
+        <PetLoadingScreen error={petLoadError} onRetry={handlePetReload} />
       </>
     )
   }

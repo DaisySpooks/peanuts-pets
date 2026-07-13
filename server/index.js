@@ -25,6 +25,14 @@ import {
   validatePetName,
   validatePetType,
 } from './pets.js'
+import { getNutReserveBalance, spendNutReservePoints } from './nutReserve.js'
+import {
+  createPendingPetPurchase,
+  deletePendingPetPurchase,
+  getLatestPetPurchaseByDiscordUserId,
+  markPetPurchaseFailed,
+  markPetPurchasePaid,
+} from './petPurchases.js'
 
 dotenv.config()
 
@@ -61,6 +69,7 @@ const {
 } = process.env
 
 const PORT = process.env.PORT || 8787
+const FIRST_PET_PRICE_POINTS = 20
 // Only used to send the browser back to the frontend after the OAuth
 // redirect round-trip; not a secret and not part of the token exchange.
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
@@ -340,47 +349,272 @@ async function requireAdminAccess(req, res, next) {
   next()
 }
 
-app.get('/api/pets/me', accessRateLimiter, requireAccess, async (req, res) => {
-  try {
-    const pet = await getPetByDiscordUserId({
-      supabaseUrl: SUPABASE_URL,
-      serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
-      discordUserId: req.discordUserId,
-    })
-    res.json({ pet: toDisplayPet(pet) })
-  } catch (error) {
-    console.error('Pet lookup failed:', error.message)
-    res.status(503).json({ error: 'pet_lookup_failed' })
+function sendPetPaymentFailed(res, error = null) {
+  res.status(402).json({
+    error: 'pet_payment_failed',
+    ...(typeof error?.code === 'string' ? { code: error.code } : {}),
+    ...(Number.isFinite(error?.balance) ? { balance: error.balance } : {}),
+    ...(typeof error?.pointDisplayName === 'string' ? { pointDisplayName: error.pointDisplayName } : {}),
+  })
+}
+
+export function getMyPetRouteHandler(deps = {}) {
+  const getPet = deps.getPetByDiscordUserId ?? getPetByDiscordUserId
+  const getLatestPurchase = deps.getLatestPetPurchaseByDiscordUserId ?? getLatestPetPurchaseByDiscordUserId
+  const supabaseUrl = deps.supabaseUrl ?? SUPABASE_URL
+  const serviceRoleKey = deps.serviceRoleKey ?? SUPABASE_SERVICE_ROLE_KEY
+  const logger = deps.logger ?? console
+
+  return async function handleGetMyPet(req, res) {
+    try {
+      const pet = await getPet({
+        supabaseUrl,
+        serviceRoleKey,
+        discordUserId: req.discordUserId,
+      })
+
+      if (!pet) {
+        res.json({ pet: toDisplayPet(pet) })
+        return
+      }
+
+      let latestPurchase
+      try {
+        latestPurchase = await getLatestPurchase(req.discordUserId)
+      } catch (error) {
+        logger.error('Pet purchase lookup failed:', error.message)
+        res.status(503).json({ error: 'pet_lookup_failed' })
+        return
+      }
+
+      if (!latestPurchase || latestPurchase.status === 'PAID') {
+        res.json({ pet: toDisplayPet(pet) })
+        return
+      }
+
+      if (latestPurchase.status === 'PAYMENT_FAILED') {
+        sendPetPaymentFailed(res)
+        return
+      }
+
+      res.status(409).json({ error: 'pet_create_in_progress' })
+    } catch (error) {
+      logger.error('Pet lookup failed:', error.message)
+      res.status(503).json({ error: 'pet_lookup_failed' })
+    }
   }
-})
+}
 
-app.post('/api/pets/create', accessRateLimiter, requireAccess, async (req, res) => {
-  const petType = req.body?.petType
-  const petName = validatePetName(req.body?.name)
+app.get('/api/pets/me', accessRateLimiter, requireAccess, getMyPetRouteHandler())
 
-  if (!validatePetType(petType)) {
-    res.status(400).json({ error: 'invalid_pet_type' })
+async function resolveExistingPetCreateResponse({ res, discordUserId, pet, getLatestPurchase }) {
+  const latestPurchase = await getLatestPurchase(discordUserId)
+
+  if (!latestPurchase || latestPurchase.status === 'PAID') {
+    res.json({ pet: toDisplayPet(pet) })
     return
   }
-  if (!petName) {
-    res.status(400).json({ error: 'invalid_pet_name' })
+
+  if (latestPurchase.status === 'PAYMENT_FAILED') {
+    sendPetPaymentFailed(res)
     return
   }
 
-  try {
-    const pet = await createPetIfNotExists({
-      supabaseUrl: SUPABASE_URL,
-      serviceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
-      discordUserId: req.discordUserId,
-      petType,
-      petName,
-    })
-    res.json({ pet: toDisplayPet(pet) })
-  } catch (error) {
-    console.error('Pet creation failed:', error.message)
-    res.status(503).json({ error: 'pet_create_failed' })
+  res.status(409).json({ error: 'pet_create_in_progress' })
+}
+
+export function createPetRouteHandler(deps = {}) {
+  const getPet = deps.getPetByDiscordUserId ?? getPetByDiscordUserId
+  const createPet = deps.createPetIfNotExists ?? createPetIfNotExists
+  const getBalance = deps.getNutReserveBalance ?? getNutReserveBalance
+  const spendPoints = deps.spendNutReservePoints ?? spendNutReservePoints
+  const createPendingPurchase = deps.createPendingPetPurchase ?? createPendingPetPurchase
+  const getLatestPurchase = deps.getLatestPetPurchaseByDiscordUserId ?? getLatestPetPurchaseByDiscordUserId
+  const markPurchasePaid = deps.markPetPurchasePaid ?? markPetPurchasePaid
+  const markPurchaseFailed = deps.markPetPurchaseFailed ?? markPetPurchaseFailed
+  const deletePendingPurchase = deps.deletePendingPetPurchase ?? deletePendingPetPurchase
+  const supabaseUrl = deps.supabaseUrl ?? SUPABASE_URL
+  const serviceRoleKey = deps.serviceRoleKey ?? SUPABASE_SERVICE_ROLE_KEY
+  const guildId = deps.guildId ?? DISCORD_GUILD_ID
+  const logger = deps.logger ?? console
+
+  return async function handleCreatePet(req, res) {
+    const petType = req.body?.petType
+    const petName = validatePetName(req.body?.name)
+
+    if (!validatePetType(petType)) {
+      res.status(400).json({ error: 'invalid_pet_type' })
+      return
+    }
+    if (!petName) {
+      res.status(400).json({ error: 'invalid_pet_name' })
+      return
+    }
+
+    try {
+      const existingPet = await getPet({
+        supabaseUrl,
+        serviceRoleKey,
+        discordUserId: req.discordUserId,
+      })
+
+      if (existingPet) {
+        await resolveExistingPetCreateResponse({
+          res,
+          discordUserId: req.discordUserId,
+          pet: existingPet,
+          getLatestPurchase,
+        })
+        return
+      }
+
+      let balance
+      try {
+        balance = await getBalance(req.discordUserId)
+      } catch (error) {
+        logger.error('Nut Reserve balance check failed:', error.message)
+        res.status(503).json({ error: 'balance_check_failed' })
+        return
+      }
+
+      if (!Number.isFinite(balance?.balance) || balance.balance < FIRST_PET_PRICE_POINTS) {
+        res.status(402).json({
+          error: 'insufficient_points',
+          balance: Number.isFinite(balance?.balance) ? balance.balance : 0,
+          pointDisplayName: typeof balance?.pointDisplayName === 'string'
+            ? balance.pointDisplayName
+            : null,
+        })
+        return
+      }
+
+      let purchase
+      try {
+        purchase = await createPendingPurchase({
+          discordUserId: req.discordUserId,
+          guildId,
+          petType,
+          petName,
+        })
+      } catch (error) {
+        if (error.message === 'pet_purchase_pending_conflict') {
+          const currentPet = await getPet({
+            supabaseUrl,
+            serviceRoleKey,
+            discordUserId: req.discordUserId,
+          })
+
+          if (currentPet) {
+            const latestPurchase = await getLatestPurchase(req.discordUserId)
+            if (latestPurchase?.status === 'PAYMENT_FAILED') {
+              sendPetPaymentFailed(res)
+              return
+            }
+            if (!latestPurchase || latestPurchase.status === 'PAID') {
+              res.json({ pet: toDisplayPet(currentPet) })
+              return
+            }
+          }
+
+          res.status(409).json({ error: 'pet_create_in_progress' })
+          return
+        }
+
+        logger.error('Pet purchase create failed:', error.message)
+        res.status(503).json({ error: 'pet_create_failed' })
+        return
+      }
+
+      let petAfterPending = null
+      try {
+        petAfterPending = await getPet({
+          supabaseUrl,
+          serviceRoleKey,
+          discordUserId: req.discordUserId,
+        })
+      } catch (error) {
+        logger.error('Pet lookup after pending purchase failed:', error.message)
+      }
+
+      if (petAfterPending) {
+        await deletePendingPurchase(purchase.purchaseId).catch(() => null)
+        const priorPurchase = await getLatestPurchase(req.discordUserId, {
+          excludePurchaseId: purchase.purchaseId,
+        })
+
+        if (priorPurchase?.status === 'PAYMENT_FAILED') {
+          sendPetPaymentFailed(res)
+          return
+        }
+        if (!priorPurchase || priorPurchase.status === 'PAID') {
+          res.json({ pet: toDisplayPet(petAfterPending) })
+          return
+        }
+
+        res.status(409).json({ error: 'pet_create_in_progress' })
+        return
+      }
+
+      let pet
+      try {
+        pet = await createPet({
+          supabaseUrl,
+          serviceRoleKey,
+          discordUserId: req.discordUserId,
+          petType,
+          petName,
+        })
+      } catch (error) {
+        await deletePendingPurchase(purchase.purchaseId).catch(() => null)
+        logger.error('Pet creation failed:', error.message)
+        res.status(503).json({ error: 'pet_create_failed' })
+        return
+      }
+
+      const priorSettledPurchase = await getLatestPurchase(req.discordUserId, {
+        excludePurchaseId: purchase.purchaseId,
+      })
+
+      if (priorSettledPurchase?.status === 'PAID') {
+        await deletePendingPurchase(purchase.purchaseId).catch(() => null)
+        res.json({ pet: toDisplayPet(pet) })
+        return
+      }
+
+      if (priorSettledPurchase?.status === 'PAYMENT_FAILED') {
+        await deletePendingPurchase(purchase.purchaseId).catch(() => null)
+        sendPetPaymentFailed(res)
+        return
+      }
+
+      try {
+        await spendPoints({
+          discordUserId: req.discordUserId,
+          amount: FIRST_PET_PRICE_POINTS,
+          reason: 'peanuts_pets_first_pet_purchase',
+          idempotencyKey: purchase.purchaseId,
+        })
+      } catch (error) {
+        await markPurchaseFailed(purchase.purchaseId).catch(() => null)
+        sendPetPaymentFailed(res, error)
+        return
+      }
+
+      try {
+        await markPurchasePaid(purchase.purchaseId)
+      } catch (error) {
+        logger.error('Pet purchase mark paid failed:', error.message)
+      }
+
+      res.json({ pet: toDisplayPet(pet) })
+    } catch (error) {
+      logger.error('Pet creation failed:', error.message)
+      res.status(503).json({ error: 'pet_create_failed' })
+    }
   }
-})
+}
+
+app.post('/api/pets/create', accessRateLimiter, requireAccess, createPetRouteHandler())
 
 app.post('/api/pets/:action(feed|clean|play)', accessRateLimiter, requireAccess, async (req, res) => {
   const action = req.params.action
@@ -555,6 +789,10 @@ app.delete('/api/admin/my-pet', accessRateLimiter, requireAdminAccess, async (re
   }
 })
 
-app.listen(PORT, () => {
-  console.log(`Auth server listening on port ${PORT}`)
-})
+const isMainModule = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href
+
+if (isMainModule) {
+  app.listen(PORT, () => {
+    console.log(`Auth server listening on port ${PORT}`)
+  })
+}

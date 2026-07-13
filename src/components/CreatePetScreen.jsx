@@ -25,6 +25,28 @@ export default function CreatePetScreen({ onCreate, onViewAccessScreen }) {
   const trimmedName = name.trim()
   const nameError = nameTouched && trimmedName.length === 0 ? 'Please enter a name.' : null
   const canSubmit = selectedPet !== null && trimmedName.length > 0 && trimmedName.length <= MAX_NAME_LENGTH
+  const pointDisplayName = submitError?.pointDisplayName || 'points'
+
+  function getCreateErrorMessage(error) {
+    if (!error) return 'Could not save your pet. Please try again.'
+
+    if (error.message === 'insufficient_points') {
+      const displayName = error.pointDisplayName || 'points'
+      const balance = Number.isFinite(error.balance) ? error.balance : 0
+      return `You need 20 ${displayName}. You currently have ${balance}.`
+    }
+    if (error.message === 'pet_create_in_progress') {
+      return 'Your pet is still being created. Please try again in a moment.'
+    }
+    if (error.message === 'pet_payment_failed') {
+      return 'Your pet was created, but payment could not be completed. Please contact the team.'
+    }
+    if (error.message === 'balance_check_failed') {
+      return 'We couldn’t check your points balance right now. Please try again.'
+    }
+
+    return 'Could not save your pet. Please try again.'
+  }
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -36,8 +58,11 @@ export default function CreatePetScreen({ onCreate, onViewAccessScreen }) {
     try {
       const savedPet = await createPet({ petType: selectedPet, name: trimmedName })
       onCreate?.(savedPet)
-    } catch {
-      setSubmitError('Could not save your pet. Please try again.')
+    } catch (error) {
+      setSubmitError({
+        message: getCreateErrorMessage(error),
+        pointDisplayName: error.pointDisplayName,
+      })
       setIsSubmitting(false)
     }
   }
@@ -58,6 +83,9 @@ export default function CreatePetScreen({ onCreate, onViewAccessScreen }) {
           </h1>
           <p className="mt-2 text-sm text-cream/60 sm:text-base">
             Pick your starter companion and give them a name.
+          </p>
+          <p className="mt-2 text-xs text-gold/70 sm:text-sm">
+            Your first pet costs 20 {pointDisplayName}.
           </p>
         </div>
 
@@ -135,6 +163,11 @@ export default function CreatePetScreen({ onCreate, onViewAccessScreen }) {
             >
               Create My Pet
             </button>
+            {submitError ? (
+              <p role="status" className="mt-4 text-center text-sm leading-relaxed text-cream/70">
+                {submitError.message}
+              </p>
+            ) : null}
           </form>
         </div>
 
