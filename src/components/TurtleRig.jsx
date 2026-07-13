@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useIdleBlink } from './useIdleBlink.js'
 import { petAssetPath } from './petAssetPath.js'
 import { playPet, playAffection } from '../lib/audio.js'
+import { PET_EXPRESSIONS } from './useTemporaryExpression.js'
 
 // Turtle's split-face rig: a plain `head` base with separate eyes/mouth
 // layers on top, same pattern as the axolotl/betta rigs.
@@ -106,9 +107,9 @@ function useEatingWindow(isEating) {
   return held
 }
 
-function getTurtleFaceState(mood, stats, isEating, isPlaying) {
+function getTurtleFaceState(mood, stats, expression, isEating) {
   if (isEating) return { eyes: 'eyes-open', mouth: 'mouth-eating', canBlink: false }
-  if (isPlaying) return { eyes: 'eyes-open', mouth: 'mouth-happy', canBlink: true }
+  if (expression === PET_EXPRESSIONS.happy) return { eyes: 'eyes-open', mouth: 'mouth-happy', canBlink: true }
 
   const happiness = typeof stats.happiness === 'number' ? stats.happiness : null
   const isSleepy = mood === 'sleepy' || mood === 'tired' || mood === 'resting'
@@ -209,6 +210,7 @@ export default function TurtleRig({
   mood = 'happy',
   stats = {},
   lastPettedAt = null,
+  expression = PET_EXPRESSIONS.neutral,
   isEating = false,
   isFeeding = false,
   feedTrigger = 0,
@@ -220,7 +222,7 @@ export default function TurtleRig({
 }) {
   const bob = mood === 'happy' ? 'animate-pet-bob motion-ambient' : ''
   const isEatingHeld = useEatingWindow(isEating)
-  const face = getTurtleFaceState(mood, stats, isEatingHeld, isPlaying)
+  const face = getTurtleFaceState(mood, stats, expression, isEatingHeld)
   const [isChomping, setIsChomping] = useState(false)
   const chompStartTimeoutRef = useRef(null)
   const chompEndTimeoutRef = useRef(null)

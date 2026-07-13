@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useIdleBlink } from './useIdleBlink.js'
 import { petAssetPath } from './petAssetPath.js'
 import { playPet, playAffection } from '../lib/audio.js'
+import { PET_EXPRESSIONS } from './useTemporaryExpression.js'
 
 // Betta's split-face rig: a plain `head` base with separate eyes/mouth
 // layers on top, same pattern as the axolotl rig — but betta has no
@@ -118,9 +119,9 @@ function useExtendedEating(isEating) {
   return held
 }
 
-function getBettaFaceState(mood, stats, isEating, isPlaying) {
+function getBettaFaceState(mood, stats, expression, isEating) {
   if (isEating) return { eyes: 'eyes-open', mouth: 'mouth-eating', canBlink: false }
-  if (isPlaying) return { eyes: 'eyes-open', mouth: 'mouth-happy', canBlink: true }
+  if (expression === PET_EXPRESSIONS.happy) return { eyes: 'eyes-open', mouth: 'mouth-happy', canBlink: true }
 
   const happiness = typeof stats.happiness === 'number' ? stats.happiness : null
   const isSleepy = mood === 'sleepy' || mood === 'tired' || mood === 'resting'
@@ -214,6 +215,7 @@ export default function BettaRig({
   mood = 'happy',
   stats = {},
   lastPettedAt = null,
+  expression = PET_EXPRESSIONS.neutral,
   isEating = false,
   isFeeding = false,
   feedTrigger = 0,
@@ -225,7 +227,7 @@ export default function BettaRig({
 }) {
   const bob = mood === 'happy' ? 'animate-pet-bob motion-ambient' : ''
   const isEatingHeld = useExtendedEating(isEating)
-  const face = getBettaFaceState(mood, stats, isEatingHeld, isPlaying)
+  const face = getBettaFaceState(mood, stats, expression, isEatingHeld)
   const [isChomping, setIsChomping] = useState(false)
   const chompStartTimeoutRef = useRef(null)
   const chompEndTimeoutRef = useRef(null)

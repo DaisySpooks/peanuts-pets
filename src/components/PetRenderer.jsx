@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { petAssetPath } from './petAssetPath.js'
 import { playPet, playAffection } from '../lib/audio.js'
+import { PET_EXPRESSIONS } from './useTemporaryExpression.js'
 
 // Renders the layered axolotl. Swap this component's internals for a PixiJS
 // sprite pipeline later — TankStage, TankDecor, TankEffects, StatBar,
@@ -26,9 +27,9 @@ const HAPPY_HAPPINESS_THRESHOLD = 85
 // they override the mood/happiness face while active. canBlink is only
 // true for the normal/happy eyes-open states — sleepy is already closed,
 // and eating keeps eyes-open but shouldn't blink mid-bite.
-function getAxolotlFaceState(mood, stats, isEating, isPlaying) {
+function getAxolotlFaceState(mood, stats, expression, isEating) {
   if (isEating) return { eyes: 'eyes-open', mouth: 'mouth-eating', canBlink: false }
-  if (isPlaying) return { eyes: 'eyes-open', mouth: 'mouth-happy', canBlink: true }
+  if (expression === PET_EXPRESSIONS.happy) return { eyes: 'eyes-open', mouth: 'mouth-happy', canBlink: true }
 
   const happiness = typeof stats.happiness === 'number' ? stats.happiness : null
   const isSleepy = mood === 'sleepy' || mood === 'tired' || mood === 'resting'
@@ -196,6 +197,7 @@ export default function PetRenderer({
   mood = 'happy',
   stats = {},
   lastPettedAt = null,
+  expression = PET_EXPRESSIONS.neutral,
   isEating = false,
   isFeeding = false,
   feedTrigger = 0,
@@ -205,7 +207,7 @@ export default function PetRenderer({
   colour = null,
 }) {
   const bob = mood === 'happy' ? 'animate-pet-bob motion-ambient' : ''
-  const face = getAxolotlFaceState(mood, stats, isEating, isPlaying)
+  const face = getAxolotlFaceState(mood, stats, expression, isEating)
   const [isChomping, setIsChomping] = useState(false)
   const chompStartTimeoutRef = useRef(null)
   const chompEndTimeoutRef = useRef(null)

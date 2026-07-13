@@ -4,6 +4,7 @@ import StatBar, { AffectionBar } from './StatBar.jsx'
 import ActionCard from './ActionCard.jsx'
 import PetIdentityCard, { MobilePetIdentityCard } from './PetIdentityCard.jsx'
 import { playFoodDrop, playEating, playTankClean, playPlay } from '../lib/audio.js'
+import { PET_EXPRESSIONS, useTemporaryExpression } from './useTemporaryExpression.js'
 
 // Pellet sinks toward the mouth over this long (matches the pellet-drop
 // animation duration in tailwind.config.js); mouth-eating only kicks in
@@ -22,6 +23,8 @@ const EATING_SOUND_EXTRA_DELAY_MS = 150
 const CLEANING_DURATION_MS = 1500
 
 const PLAYING_DURATION_MS = 1400
+const HAPPY_EXPRESSION_DURATION_MS = 700
+const FEED_HAPPY_EXPRESSION_DURATION_MS = (EATING_END_MS - EATING_START_MS) + HAPPY_EXPRESSION_DURATION_MS
 
 const LOW_CLEANLINESS_THRESHOLD = 40
 const HIGH_CLEANLINESS_THRESHOLD = 95
@@ -83,6 +86,7 @@ export default function HabitatScreen({
   const [isPlaying, setIsPlaying] = useState(false)
   const [pendingAction, setPendingAction] = useState(null)
   const [actionError, setActionError] = useState(null)
+  const { expression, showExpression } = useTemporaryExpression()
   const pelletTimeoutRef = useRef(null)
   const eatingStartTimeoutRef = useRef(null)
   const eatingEndTimeoutRef = useRef(null)
@@ -120,7 +124,10 @@ export default function HabitatScreen({
       setFeedTrigger((n) => n + 1)
 
       pelletTimeoutRef.current = setTimeout(() => setIsFeeding(false), PELLET_DURATION_MS)
-      eatingStartTimeoutRef.current = setTimeout(() => setIsEating(true), EATING_START_MS)
+      eatingStartTimeoutRef.current = setTimeout(() => {
+        setIsEating(true)
+        showExpression(PET_EXPRESSIONS.happy, FEED_HAPPY_EXPRESSION_DURATION_MS)
+      }, EATING_START_MS)
       eatingEndTimeoutRef.current = setTimeout(() => setIsEating(false), EATING_END_MS)
       // Sound trails the visual bite by a small extra beat (see
       // EATING_SOUND_EXTRA_DELAY_MS) so it lines up perceptually instead of
@@ -132,11 +139,15 @@ export default function HabitatScreen({
     } else if (actionKey === 'clean') {
       clearTimeout(cleaningTimeoutRef.current)
       setIsCleaning(true)
-      cleaningTimeoutRef.current = setTimeout(() => setIsCleaning(false), CLEANING_DURATION_MS)
+      cleaningTimeoutRef.current = setTimeout(() => {
+        setIsCleaning(false)
+        showExpression(PET_EXPRESSIONS.happy, HAPPY_EXPRESSION_DURATION_MS)
+      }, CLEANING_DURATION_MS)
       playTankClean()
     } else if (actionKey === 'play') {
       clearTimeout(playingTimeoutRef.current)
       setIsPlaying(true)
+      showExpression(PET_EXPRESSIONS.happy, PLAYING_DURATION_MS)
       playingTimeoutRef.current = setTimeout(() => setIsPlaying(false), PLAYING_DURATION_MS)
       playPlay()
     }
@@ -152,6 +163,11 @@ export default function HabitatScreen({
       .finally(() => {
         setPendingAction((current) => (current === actionKey ? null : current))
       })
+  }
+
+  const handlePetPersist = () => {
+    showExpression(PET_EXPRESSIONS.happy, HAPPY_EXPRESSION_DURATION_MS)
+    return onPetPersist?.()
   }
 
   return (
@@ -223,6 +239,7 @@ export default function HabitatScreen({
                 colour={colour}
                 name={pet.name}
                 lastPettedAt={pet.lastPettedAt ?? null}
+                expression={expression}
                 mood="happy"
                 stats={statsForMood}
                 isEating={isEating}
@@ -230,7 +247,7 @@ export default function HabitatScreen({
                 feedTrigger={feedTrigger}
                 isCleaning={isCleaning}
                 isPlaying={isPlaying}
-                onPetPersist={onPetPersist}
+                onPetPersist={handlePetPersist}
               />
             </div>
           </div>
