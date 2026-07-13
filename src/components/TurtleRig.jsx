@@ -219,7 +219,10 @@ export default function TurtleRig({
   onPetPersist,
   name,
   colour = null,
+  presentationMode = 'habitat',
+  celebrationGreeting = false,
 }) {
+  const isCelebrationMode = presentationMode === 'celebration'
   const bob = mood === 'happy' ? 'animate-pet-bob motion-ambient' : ''
   const isEatingHeld = useEatingWindow(isEating)
   const face = getTurtleFaceState(mood, stats, expression, isEatingHeld)
@@ -302,12 +305,21 @@ export default function TurtleRig({
   const happiness = typeof stats.happiness === 'number' ? stats.happiness : null
   const isSleepy = mood === 'sleepy' || mood === 'tired' || mood === 'resting'
     || (happiness !== null && happiness <= SLEEPY_HAPPINESS_THRESHOLD)
-  const canIdleAnimate = !isFeeding && !isPlaying && !isCleaning && !isReleasingFeed && !isEating && !isChomping && !isSleepy && !isPetting
+  const canIdleAnimate = !isCelebrationMode
+    && !isFeeding
+    && !isPlaying
+    && !isCleaning
+    && !isReleasingFeed
+    && !isEating
+    && !isChomping
+    && !isSleepy
+    && !isPetting
   const activeIdleAnimation = canIdleAnimate ? idleAnimation : null
   const effectiveLastPettedAt = optimisticLastPettedAt ?? lastPettedAt
   const lastPettedMs = effectiveLastPettedAt ? new Date(effectiveLastPettedAt).getTime() : Number.NaN
   const isPettingAvailable = !Number.isFinite(lastPettedMs) || (pettingAvailabilityNowMs - lastPettedMs) >= PETTING_COOLDOWN_MS
-  const canPet = !isFeeding
+  const canPet = !isCelebrationMode
+    && !isFeeding
     && !isPlaying
     && !isCleaning
     && !isReleasingFeed
@@ -398,7 +410,14 @@ export default function TurtleRig({
   // isEatingHeld window — isEatingHeld now turns on with a delay (see
   // useEatingWindow), which would otherwise leave a gap early in feeding
   // where blink could still fire and interfere.
-  const canBlink = !isFeeding && !isPlaying && !isCleaning && !isReleasingFeed && !isSleepy && !activeIdleAnimation && !isPetting
+  const canBlink = !isCelebrationMode
+    && !isFeeding
+    && !isPlaying
+    && !isCleaning
+    && !isReleasingFeed
+    && !isSleepy
+    && !activeIdleAnimation
+    && !isPetting
   const isBlinking = useIdleBlink(canBlink, {
     minDurationMs: TURTLE_BLINK_MIN_DURATION_MS,
     maxDurationMs: TURTLE_BLINK_MAX_DURATION_MS,
@@ -480,7 +499,9 @@ export default function TurtleRig({
   // action/persist/cooldown.
   const actionStyle = isFeeding
     ? { animation: 'turtle-feed-anticipation 700ms ease-out 1 forwards' }
-    : isPlaying
+    : celebrationGreeting
+      ? { animation: 'turtle-play-bounce 900ms ease-in-out 1' }
+      : isPlaying
       ? { animation: 'turtle-play-bounce 1.4s ease-in-out 1' }
       : isReleasingFeed
         ? { animation: `turtle-feed-release ${FEED_RELEASE_DURATION_MS}ms ease-out 1 forwards` }

@@ -4,6 +4,7 @@ import CreatePetScreen from './components/CreatePetScreen.jsx'
 import HabitatScreen from './components/HabitatScreen.jsx'
 import PetLoadingScreen from './components/PetLoadingScreen.jsx'
 import AdminScreen from './components/AdminScreen.jsx'
+import FirstAdoptionCelebration from './components/FirstAdoptionCelebration.jsx'
 import { MobileFixedAuthMenu } from './components/MobileAuthMenu.jsx'
 import { useAuthStatus } from './auth/useAuthStatus.js'
 import { logout } from './auth/discordAuth.js'
@@ -72,6 +73,7 @@ export default function App() {
   const [pet, setPet] = useState(undefined)
   const [petLoadError, setPetLoadError] = useState(null)
   const [petReloadKey, setPetReloadKey] = useState(0)
+  const [pendingFirstAdoptionPet, setPendingFirstAdoptionPet] = useState(null)
 
   const hasAccess = accessGranted && !isCheckingAccess && !viewingAccessScreen
   const hasAdminAccess = access?.adminAccessGranted === true
@@ -162,7 +164,10 @@ export default function App() {
         <DesktopAuthControls hasAdminAccess={hasAdminAccess} onAdminClick={() => setViewingAdminScreen(true)} />
         <MobileFixedAuthMenu hasAdminAccess={hasAdminAccess} onAdminClick={() => setViewingAdminScreen(true)} />
         <CreatePetScreen
-          onCreate={setPet}
+          onCreate={(savedPet) => {
+            setPendingFirstAdoptionPet(savedPet)
+            setPet(savedPet)
+          }}
           onViewAccessScreen={() => setViewingAccessScreen(true)}
         />
       </>
@@ -172,34 +177,50 @@ export default function App() {
   const speciesLabel = PET_OPTIONS.find((p) => p.key === pet.petType)?.label || pet.petType
   const habitatStats = buildHabitatStats(pet)
   const habitatActions = buildPetActions(pet)
+  const habitatScreen = (
+    <HabitatScreen
+      pet={{
+        name: pet.petName,
+        species: speciesLabel,
+        temperament: pet.temperament ?? null,
+        lastPettedAt: pet.lastPettedAt ?? null,
+      }}
+      petType={pet.petType}
+      colour={pet.colour ?? null}
+      stats={habitatStats}
+      actions={habitatActions}
+      mobileIdentityAuthMenu={{
+        hasAdminAccess,
+        onAdminClick: () => setViewingAdminScreen(true),
+      }}
+      onActionPersist={async (action) => {
+        const updatedPet = await performPetAction(action)
+        setPet(updatedPet)
+      }}
+      onPetPersist={async () => {
+        const updatedPet = await performPetting()
+        setPet(updatedPet)
+        return updatedPet
+      }}
+    />
+  )
+
+  if (pendingFirstAdoptionPet) {
+    return (
+      <div className="relative min-h-screen">
+        {habitatScreen}
+        <FirstAdoptionCelebration
+          pet={pendingFirstAdoptionPet}
+          onComplete={() => setPendingFirstAdoptionPet(null)}
+        />
+      </div>
+    )
+  }
+
   return (
     <>
       <DesktopAuthControls hasAdminAccess={hasAdminAccess} onAdminClick={() => setViewingAdminScreen(true)} />
-      <HabitatScreen
-        pet={{
-          name: pet.petName,
-          species: speciesLabel,
-          temperament: pet.temperament ?? null,
-          lastPettedAt: pet.lastPettedAt ?? null,
-        }}
-        petType={pet.petType}
-        colour={pet.colour ?? null}
-        stats={habitatStats}
-        actions={habitatActions}
-        mobileIdentityAuthMenu={{
-          hasAdminAccess,
-          onAdminClick: () => setViewingAdminScreen(true),
-        }}
-        onActionPersist={async (action) => {
-          const updatedPet = await performPetAction(action)
-          setPet(updatedPet)
-        }}
-        onPetPersist={async () => {
-          const updatedPet = await performPetting()
-          setPet(updatedPet)
-          return updatedPet
-        }}
-      />
+      {habitatScreen}
     </>
   )
 }

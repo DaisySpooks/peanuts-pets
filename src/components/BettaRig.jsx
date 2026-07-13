@@ -224,7 +224,10 @@ export default function BettaRig({
   onPetPersist,
   name,
   colour = null,
+  presentationMode = 'habitat',
+  celebrationGreeting = false,
 }) {
+  const isCelebrationMode = presentationMode === 'celebration'
   const bob = mood === 'happy' ? 'animate-pet-bob motion-ambient' : ''
   const isEatingHeld = useExtendedEating(isEating)
   const face = getBettaFaceState(mood, stats, expression, isEatingHeld)
@@ -311,12 +314,21 @@ export default function BettaRig({
   const happiness = typeof stats.happiness === 'number' ? stats.happiness : null
   const isSleepy = mood === 'sleepy' || mood === 'tired' || mood === 'resting'
     || (happiness !== null && happiness <= SLEEPY_HAPPINESS_THRESHOLD)
-  const canIdleAnimate = !isFeeding && !isPlaying && !isCleaning && !isEating && !isReleasingFeed && !isChomping && !isSleepy && !isPetting
+  const canIdleAnimate = !isCelebrationMode
+    && !isFeeding
+    && !isPlaying
+    && !isCleaning
+    && !isEating
+    && !isReleasingFeed
+    && !isChomping
+    && !isSleepy
+    && !isPetting
   const activeIdleAnimation = canIdleAnimate ? idleAnimation : null
   const effectiveLastPettedAt = optimisticLastPettedAt ?? lastPettedAt
   const lastPettedMs = effectiveLastPettedAt ? new Date(effectiveLastPettedAt).getTime() : Number.NaN
   const isPettingAvailable = !Number.isFinite(lastPettedMs) || (pettingAvailabilityNowMs - lastPettedMs) >= PETTING_COOLDOWN_MS
-  const canPet = !isFeeding
+  const canPet = !isCelebrationMode
+    && !isFeeding
     && !isPlaying
     && !isCleaning
     && !isEating
@@ -403,7 +415,9 @@ export default function BettaRig({
     }
   }, [canPet, isPettingAvailable])
 
-  const isBlinking = useIdleBlink(face.canBlink && !isCleaning && !isReleasingFeed && !activeIdleAnimation && !isPetting)
+  const isBlinking = useIdleBlink(
+    !isCelebrationMode && face.canBlink && !isCleaning && !isReleasingFeed && !activeIdleAnimation && !isPetting,
+  )
   const eyes = isChomping ? 'eyes-closed' : isBlinking ? 'eyes-closed' : face.eyes
   const mouth = isChomping ? 'mouth-idle' : face.mouth
   const pettingEyes = isPetting ? 'eyes-closed' : eyes
@@ -485,7 +499,9 @@ export default function BettaRig({
   // action/persist/cooldown.
   const actionStyle = isFeeding
     ? { animation: 'betta-feed-anticipation 700ms ease-out 1 forwards' }
-    : isPlaying
+    : celebrationGreeting
+      ? { animation: 'betta-play-wiggle 900ms ease-in-out 1' }
+      : isPlaying
       ? { animation: 'betta-play-wiggle 1.4s ease-in-out 1' }
       : isReleasingFeed
         ? { animation: `betta-feed-release ${FEED_RELEASE_DURATION_MS}ms ease-out 1 forwards` }

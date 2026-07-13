@@ -205,7 +205,10 @@ export default function PetRenderer({
   isCleaning = false,
   onPetPersist,
   colour = null,
+  presentationMode = 'habitat',
+  celebrationGreeting = false,
 }) {
+  const isCelebrationMode = presentationMode === 'celebration'
   const bob = mood === 'happy' ? 'animate-pet-bob motion-ambient' : ''
   const face = getAxolotlFaceState(mood, stats, expression, isEating)
   const [isChomping, setIsChomping] = useState(false)
@@ -291,12 +294,21 @@ export default function PetRenderer({
   const happiness = typeof stats.happiness === 'number' ? stats.happiness : null
   const isSleepy = mood === 'sleepy' || mood === 'tired' || mood === 'resting'
     || (happiness !== null && happiness <= SLEEPY_HAPPINESS_THRESHOLD)
-  const canIdleAnimate = !isFeeding && !isPlaying && !isCleaning && !isEating && !isReleasingFeed && !isChomping && !isSleepy && !isPetting
+  const canIdleAnimate = !isCelebrationMode
+    && !isFeeding
+    && !isPlaying
+    && !isCleaning
+    && !isEating
+    && !isReleasingFeed
+    && !isChomping
+    && !isSleepy
+    && !isPetting
   const activeIdleAnimation = canIdleAnimate ? idleAnimation : null
   const effectiveLastPettedAt = optimisticLastPettedAt ?? lastPettedAt
   const lastPettedMs = effectiveLastPettedAt ? new Date(effectiveLastPettedAt).getTime() : Number.NaN
   const isPettingAvailable = !Number.isFinite(lastPettedMs) || (pettingAvailabilityNowMs - lastPettedMs) >= PETTING_COOLDOWN_MS
-  const canPet = !isFeeding
+  const canPet = !isCelebrationMode
+    && !isFeeding
     && !isPlaying
     && !isCleaning
     && !isEating
@@ -383,7 +395,9 @@ export default function PetRenderer({
     }
   }, [canPet, isPettingAvailable])
 
-  const isBlinking = useIdleBlink(face.canBlink && !isCleaning && !isReleasingFeed && !activeIdleAnimation && !isPetting)
+  const isBlinking = useIdleBlink(
+    !isCelebrationMode && face.canBlink && !isCleaning && !isReleasingFeed && !activeIdleAnimation && !isPetting,
+  )
   const eyes = isChomping ? 'eyes-closed' : isBlinking ? 'eyes-closed' : face.eyes
   const mouth = isChomping ? 'mouth-idle' : face.mouth
   const pettingEyes = isPetting ? 'eyes-closed' : eyes
@@ -466,7 +480,9 @@ export default function PetRenderer({
   // the lean gets there.
   const actionStyle = isFeeding
     ? { animation: 'axolotl-feed-anticipation 700ms ease-out 1 forwards' }
-    : isPlaying
+    : celebrationGreeting
+      ? { animation: 'axolotl-play-wiggle 900ms ease-in-out 1' }
+      : isPlaying
       ? { animation: 'axolotl-play-wiggle 1.4s ease-in-out 1' }
       : isReleasingFeed
         ? { animation: `axolotl-feed-release ${FEED_RELEASE_DURATION_MS}ms ease-out 1 forwards` }
