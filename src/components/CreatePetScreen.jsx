@@ -7,6 +7,10 @@ import PetPreview from './PetPreview.jsx'
 
 const MAX_NAME_LENGTH = 20
 
+function formatNutshellLabel(count) {
+  return count === 1 ? 'Nutshell' : 'Nutshells'
+}
+
 function CheckIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-none stroke-current" strokeWidth="2.5">
@@ -25,15 +29,12 @@ export default function CreatePetScreen({ onCreate, onViewAccessScreen }) {
   const trimmedName = name.trim()
   const nameError = nameTouched && trimmedName.length === 0 ? 'Please enter a name.' : null
   const canSubmit = selectedPet !== null && trimmedName.length > 0 && trimmedName.length <= MAX_NAME_LENGTH
-  const pointDisplayName = submitError?.pointDisplayName || 'points'
-
   function getCreateErrorMessage(error) {
     if (!error) return 'Could not save your pet. Please try again.'
 
     if (error.message === 'insufficient_points') {
-      const displayName = error.pointDisplayName || 'points'
       const balance = Number.isFinite(error.balance) ? error.balance : 0
-      return `You need 20 ${displayName}. You currently have ${balance}.`
+      return `You need 20 Nutshells. You currently have ${balance} ${formatNutshellLabel(balance)}.`
     }
     if (error.message === 'pet_create_in_progress') {
       return 'Your pet is still being created. Please try again in a moment.'
@@ -42,7 +43,7 @@ export default function CreatePetScreen({ onCreate, onViewAccessScreen }) {
       return 'Your pet was created, but payment could not be completed. Please contact the team.'
     }
     if (error.message === 'balance_check_failed') {
-      return 'We couldn’t check your points balance right now. Please try again.'
+      return 'We couldn’t check your Nutshell balance right now. Please try again.'
     }
 
     return 'Could not save your pet. Please try again.'
@@ -85,7 +86,7 @@ export default function CreatePetScreen({ onCreate, onViewAccessScreen }) {
             Pick your starter companion and give them a name.
           </p>
           <p className="mt-2 text-xs text-gold/70 sm:text-sm">
-            Your first pet costs 20 {pointDisplayName}.
+            Your first pet costs 20 Nutshells.
           </p>
         </div>
 
