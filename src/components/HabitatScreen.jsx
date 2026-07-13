@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import TankStage from './TankStage.jsx'
-import StatBar, { AffectionBar } from './StatBar.jsx'
+import StatBar, { AffectionBar, getAffectionDisplay } from './StatBar.jsx'
 import ActionCard from './ActionCard.jsx'
 import PetIdentityCard, { MobilePetIdentityCard } from './PetIdentityCard.jsx'
 import { playFoodDrop, playEating, playTankClean, playPlay } from '../lib/audio.js'
@@ -292,28 +292,35 @@ export default function HabitatScreen({
                 ) : null}
               </div>
 
-              {affectionStat ? (
-                <div className="relative flex flex-1 flex-col justify-center overflow-hidden rounded-2xl border border-[#d88ba0]/25 bg-[linear-gradient(180deg,rgba(57,23,31,0.92),rgba(34,16,24,0.9))] px-4 py-3 shadow-[0_16px_30px_-18px_rgba(10,6,2,0.72),inset_0_1px_0_rgba(255,216,228,0.08)]">
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-0 opacity-[0.05] mix-blend-overlay"
-                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
-                  />
-                  <div className="relative flex items-baseline justify-between gap-3 text-sm">
-                    <span className="flex items-center gap-2 font-semibold text-[#ffe4eb]">
-                      <span
-                        aria-hidden="true"
-                        className="flex h-6 w-6 items-center justify-center rounded-full border border-[#f0a9bb]/35 bg-black/20 text-sm leading-none shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]"
-                      >
-                        💗
+              {affectionStat ? (() => {
+                const affectionDisplay = getAffectionDisplay(affectionStat)
+                return (
+                  <div className="relative flex flex-1 flex-col justify-center overflow-hidden rounded-2xl border border-[#d88ba0]/25 bg-[linear-gradient(180deg,rgba(57,23,31,0.92),rgba(34,16,24,0.9))] px-4 py-3 shadow-[0_16px_30px_-18px_rgba(10,6,2,0.72),inset_0_1px_0_rgba(255,216,228,0.08)]">
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 opacity-[0.05] mix-blend-overlay"
+                      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")` }}
+                    />
+                    <div className="relative flex items-baseline justify-between gap-3 text-sm">
+                      <span className="flex items-center gap-2 font-semibold text-[#ffe4eb]">
+                        <span
+                          aria-hidden="true"
+                          className="flex h-6 w-6 items-center justify-center rounded-full border border-[#f0a9bb]/35 bg-black/20 text-sm leading-none shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]"
+                        >
+                          💗
+                        </span>
+                        Affection <span className="font-normal text-[#ffe4eb]/60">· Level {affectionDisplay.level}</span>
                       </span>
-                      Affection
-                    </span>
-                    <span className="shrink-0 tabular-nums text-[#ffd5df]">{affectionStat.value}</span>
+                      <span className="shrink-0 tabular-nums text-[#ffd5df]">{affectionDisplay.progressText}</span>
+                    </div>
+                    <AffectionBar
+                      className="relative mt-3"
+                      value={affectionDisplay.progressValue}
+                      max={affectionDisplay.progressMax}
+                    />
                   </div>
-                  <AffectionBar className="relative mt-3" />
-                </div>
-              ) : null}
+                )
+              })() : null}
             </div>
           </div>
         </main>

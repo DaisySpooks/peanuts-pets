@@ -7,6 +7,12 @@ import {
   rollColourForSpecies,
 } from './petColours.js'
 import { isValidTemperament, rollTemperament } from './petTemperament.js'
+import {
+  getActionRestoreAmount,
+  getPettingAffectionBonus,
+  getStatDecayMultiplier,
+} from './petTemperamentEffects.js'
+import { getAffectionLevelInfo } from './petAffectionLevels.js'
 
 const PET_TYPES = ['axolotl', 'betta', 'turtle']
 const MAX_PET_NAME_LENGTH = 20
@@ -58,6 +64,8 @@ let hasAffectionColumn = true
 let hasColourColumn = true
 // Same independent-append treatment as colour.
 let hasTemperamentColumn = true
+// Same independent-append treatment as colour.
+let hasLifetimeAffectionColumn = true
 
 export function validatePetType(petType) {
   return typeof petType === 'string' && PET_TYPES.includes(petType)
@@ -100,6 +108,7 @@ function getPetSelectClause({ includeDiscordUserId = false } = {}) {
   }
   if (hasColourColumn) select = `${select},colour`
   if (hasTemperamentColumn) select = `${select},temperament`
+  if (hasLifetimeAffectionColumn) select = `${select},lifetime_affection`
   return select
 }
 
@@ -141,6 +150,11 @@ function toPet(row, { includeDiscordUserId = false } = {}) {
     cleanliness: normalizeCareValue(row.cleanliness, DEFAULT_CARE_STATS.cleanliness),
     happiness: normalizeCareValue(row.happiness, DEFAULT_CARE_STATS.happiness),
     affection: Number.isFinite(Number(row.affection)) ? Math.max(0, Math.trunc(Number(row.affection))) : 0,
+    // Falls back to 0 when the column is missing (migration not yet run),
+    // same optional-column compatibility pattern as affection above.
+    lifetimeAffection: Number.isFinite(Number(row.lifetime_affection))
+      ? Math.max(0, Math.trunc(Number(row.lifetime_affection)))
+      : 0,
     // Falls back to the species default when the column is missing (migration
     // not yet run) or a pre-migration row hasn't been backfilled, so older
     // clients/rigs always get a renderable colour rather than null.
@@ -185,6 +199,10 @@ async function detectMissingOptionalColumns(response) {
     hasTemperamentColumn = false
     detectedMissingColumn = true
   }
+  if (hasLifetimeAffectionColumn && bodyText.includes('lifetime_affection')) {
+    hasLifetimeAffectionColumn = false
+    detectedMissingColumn = true
+  }
 
   return detectedMissingColumn
 }
@@ -200,6 +218,8 @@ export function toDisplayPet(pet) {
     cleanliness: Math.round(pet.cleanliness),
     happiness: Math.round(pet.happiness),
     affection: Math.max(0, Math.trunc(pet.affection ?? 0)),
+    lifetimeAffection: Math.max(0, Math.trunc(pet.lifetimeAffection ?? 0)),
+    ...getAffectionLevelInfo(pet.lifetimeAffection ?? 0),
   }
 }
 
@@ -265,11 +285,17 @@ function computeDecayedStats(pet, nowMs) {
   const elapsedMs = nowMs - lastDecayMs
   if (elapsedMs <= 0) return null
 
+  const temperament = isValidTemperament(pet.temperament) ? pet.temperament : null
   const clamp = (value) => Math.max(0, Math.min(100, value))
   return {
-    hunger: clamp(pet.hunger - (STAT_DECAY_PER_DAY.hunger * elapsedMs) / DAY_MS),
+    hunger: clamp(
+      pet.hunger - (STAT_DECAY_PER_DAY.hunger * getStatDecayMultiplier(temperament, 'hunger') * elapsedMs) / DAY_MS,
+    ),
     cleanliness: clamp(pet.cleanliness - (STAT_DECAY_PER_DAY.cleanliness * elapsedMs) / DAY_MS),
-    happiness: clamp(pet.happiness - (STAT_DECAY_PER_DAY.happiness * elapsedMs) / DAY_MS),
+    happiness: clamp(
+      pet.happiness -
+        (STAT_DECAY_PER_DAY.happiness * getStatDecayMultiplier(temperament, 'happiness') * elapsedMs) / DAY_MS,
+    ),
   }
 }
 
@@ -361,6 +387,7 @@ export async function createPetIfNotExists({ supabaseUrl, serviceRoleKey, discor
         // flips the flag doesn't just fail the same way again.
         ...(hasColourColumn ? { colour: rolledColour } : {}),
         ...(hasTemperamentColumn ? { temperament: rolledTemperament } : {}),
+        ...(hasLifetimeAffectionColumn ? { lifetime_affection: 0 } : {}),
       }]),
     })
 
@@ -408,7 +435,9 @@ export async function applyPetCareAction({ supabaseUrl, serviceRoleKey, discordU
   }
 
   const now = new Date().toISOString()
-  const nextValue = Math.min(100, existing[actionConfig.statKey] + actionConfig.delta)
+  const temperament = isValidTemperament(existing.temperament) ? existing.temperament : null
+  const restoreAmount = getActionRestoreAmount(temperament, action, actionConfig.delta)
+  const nextValue = Math.min(100, existing[actionConfig.statKey] + restoreAmount)
   const payload = {
     [actionConfig.statKey]: nextValue,
     [actionConfig.columnTimestampKey]: now,
@@ -435,6 +464,8 @@ export async function applyPettingInteraction({ supabaseUrl, serviceRoleKey, dis
   }
 
   const now = new Date().toISOString()
+  const temperament = isValidTemperament(existing.temperament) ? existing.temperament : null
+  const affectionGain = 1 + getPettingAffectionBonus(temperament)
   const url = buildPetsUrl({
     supabaseUrl,
     discordUserId,
@@ -452,7 +483,14 @@ export async function applyPettingInteraction({ supabaseUrl, serviceRoleKey, dis
       Prefer: 'return=representation',
     }),
     body: JSON.stringify({
-      affection: existing.affection + 1,
+      affection: existing.affection + affectionGain,
+      // Omitted entirely (rather than sent as 0) once the column is known
+      // missing, same optional-column compatibility pattern as colour/
+      // temperament above — mirrors the exact temperament-adjusted amount
+      // affection just gained.
+      ...(hasLifetimeAffectionColumn
+        ? { lifetime_affection: existing.lifetimeAffection + affectionGain }
+        : {}),
       last_petted_at: now,
       updated_at: now,
     }),

@@ -9,22 +9,53 @@ const STAT_ICONS = {
   affection: '💗',
 }
 
-// Affection has no fixed max (it increments indefinitely from petting), so
-// unlike the other stats its bar isn't proportional to `value` — it's a
-// decorative "always full" pink bar with a sheen, sized/shaped identically
-// to the other stat bars. Shared between the mobile Companion Status list
+// Affection now represents progress toward the next affection level
+// (server-derived `levelProgress` / `levelProgressRequired` — see
+// server/petAffectionLevels.js), so the bar fills proportionally like the
+// other stats. Older API responses won't have those fields yet, so without
+// both as finite numbers this falls back to the original decorative
+// "always full" pink bar. Shared between the mobile Companion Status list
 // (below) and the desktop Affection card (HabitatScreen) so both stay
 // visually identical.
-export function AffectionBar({ className = '' }) {
+export function AffectionBar({ className = '', value, max }) {
+  const hasProgress = Number.isFinite(value) && Number.isFinite(max) && max > 0
+  const fillPercent = hasProgress ? Math.max(0, Math.min(100, (value / max) * 100)) : null
+
   return (
     <div
       className={`relative h-3 w-full overflow-hidden rounded-full border border-[#120c07] bg-[#140b10] shadow-[inset_0_2px_4px_rgba(0,0,0,0.85)] ${className}`}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_50%,rgba(255,205,219,0.16),transparent_22%),radial-gradient(circle_at_50%_50%,rgba(255,183,203,0.14),transparent_18%),radial-gradient(circle_at_82%_50%,rgba(255,205,219,0.16),transparent_22%)] opacity-80" />
-      <div className="absolute inset-y-[2px] left-2 right-2 rounded-full bg-gradient-to-r from-[#5f2736] via-[#b85f78] to-[#f0a9bb] opacity-75" />
+      {hasProgress ? (
+        <div
+          className="absolute inset-y-[2px] left-[2px] rounded-full bg-gradient-to-r from-[#5f2736] via-[#b85f78] to-[#f0a9bb] opacity-75 transition-[width] duration-200 ease-out"
+          style={{ width: `${fillPercent}%` }}
+        />
+      ) : (
+        <div className="absolute inset-y-[2px] left-2 right-2 rounded-full bg-gradient-to-r from-[#5f2736] via-[#b85f78] to-[#f0a9bb] opacity-75" />
+      )}
       <div className="absolute inset-y-0 left-0 w-1/3 -skew-x-[20deg] bg-gradient-to-r from-transparent via-white/45 to-transparent animate-bar-sheen" />
     </div>
   )
+}
+
+// Derives what the Affection row should display from a stat entry that may
+// or may not carry the server's level-progress fields yet (older API
+// responses won't). Centralized here so the mobile Companion Status list
+// and the desktop Affection card (HabitatScreen) stay in sync.
+export function getAffectionDisplay(stat) {
+  const level = Number.isFinite(stat?.level) ? stat.level : 1
+  const hasLevelProgress =
+    Number.isFinite(stat?.levelProgress) &&
+    Number.isFinite(stat?.levelProgressRequired) &&
+    stat.levelProgressRequired > 0
+
+  return {
+    level,
+    progressValue: hasLevelProgress ? stat.levelProgress : undefined,
+    progressMax: hasLevelProgress ? stat.levelProgressRequired : undefined,
+    progressText: hasLevelProgress ? `${stat.levelProgress} / ${stat.levelProgressRequired}` : `${stat.value}`,
+  }
 }
 
 export default function StatBar({ stats }) {
@@ -43,7 +74,10 @@ export default function StatBar({ stats }) {
       </h2>
       <div className="mb-3 h-px bg-gradient-to-r from-transparent via-[#c9a44c]/60 to-transparent" />
       <div className="flex flex-col gap-2.5">
-        {stats.map((stat) => (
+        {stats.map((stat) => {
+          const affectionDisplay = stat.key === 'affection' ? getAffectionDisplay(stat) : null
+
+          return (
           <div
             key={stat.key}
             className={`flex flex-col gap-1.5 rounded-lg px-2.5 py-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.45)] ${
@@ -63,14 +97,14 @@ export default function StatBar({ stats }) {
                   {STAT_ICONS[stat.key] || '⭐'}
                 </span>
                 {stat.label}
-               
-              
-                
+                {affectionDisplay ? <span className="text-cream/60">· Level {affectionDisplay.level}</span> : null}
               </span>
-              <span className={`tabular-nums ${stat.key === 'affection' ? 'text-[#ffd5df]' : 'text-[#e6c48f]'}`}>{stat.value}</span>
+              <span className={`tabular-nums ${stat.key === 'affection' ? 'text-[#ffd5df]' : 'text-[#e6c48f]'}`}>
+                {affectionDisplay ? affectionDisplay.progressText : stat.value}
+              </span>
             </div>
-            {stat.key === 'affection' ? (
-              <AffectionBar />
+            {affectionDisplay ? (
+              <AffectionBar value={affectionDisplay.progressValue} max={affectionDisplay.progressMax} />
             ) : (
               <div className="h-3 w-full overflow-hidden rounded-full border border-black/60 bg-[#120c07] shadow-[inset_0_2px_4px_rgba(0,0,0,0.85)]">
                 <div
@@ -84,7 +118,8 @@ export default function StatBar({ stats }) {
               </div>
             )}
           </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

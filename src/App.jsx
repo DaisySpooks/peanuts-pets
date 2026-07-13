@@ -59,10 +59,24 @@ function buildHabitatStats(pet) {
     affection: pet?.affection,
   }
 
-  return defaultStats.map((stat) => ({
-    ...stat,
-    value: Number.isFinite(persistedValues[stat.key]) ? persistedValues[stat.key] : stat.value,
-  }))
+  return defaultStats.map((stat) => {
+    const nextStat = {
+      ...stat,
+      value: Number.isFinite(persistedValues[stat.key]) ? persistedValues[stat.key] : stat.value,
+    }
+
+    // Level fields are server-derived (see server/petAffectionLevels.js) and
+    // only ever attached to the affection stat — older API responses simply
+    // won't have them, which the affection display falls back around.
+    if (stat.key === 'affection') {
+      nextStat.level = pet?.level
+      nextStat.levelProgress = pet?.levelProgress
+      nextStat.levelProgressRequired = pet?.levelProgressRequired
+      nextStat.nextLevelAt = pet?.nextLevelAt
+    }
+
+    return nextStat
+  })
 }
 
 export default function App() {
