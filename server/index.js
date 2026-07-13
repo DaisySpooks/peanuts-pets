@@ -26,6 +26,7 @@ import {
   validatePetType,
 } from './pets.js'
 import { getNutReserveBalance, spendNutReservePoints } from './nutReserve.js'
+import { getThoughtsForTemperament } from './petThoughts.js'
 import {
   createPendingPetPurchase,
   deletePendingPetPurchase,
@@ -406,6 +407,19 @@ export function getMyPetRouteHandler(deps = {}) {
 }
 
 app.get('/api/pets/me', accessRateLimiter, requireAccess, getMyPetRouteHandler())
+
+// Static, non-sensitive copy (see server/petThoughts.js) — no session/Discord
+// check needed, just rate-limited like the other public-ish endpoints.
+app.get('/api/pet-thoughts/:temperament', accessRateLimiter, (req, res) => {
+  const thoughts = getThoughtsForTemperament(req.params.temperament)
+
+  if (!thoughts) {
+    res.status(400).json({ error: 'invalid_temperament' })
+    return
+  }
+
+  res.json({ thoughts })
+})
 
 async function resolveExistingPetCreateResponse({ res, discordUserId, pet, getLatestPurchase }) {
   const latestPurchase = await getLatestPurchase(discordUserId)

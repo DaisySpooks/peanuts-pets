@@ -2,6 +2,7 @@ import TankDecor from './TankDecor.jsx'
 import TankEffects from './TankEffects.jsx'
 import PetRig from './PetRig.jsx'
 import PetShadow from './PetShadow.jsx'
+import PetThoughtBubble from './PetThoughtBubble.jsx'
 
 // Maps the cleanliness stat to how visible the dirty-water overlay is.
 // Anchored so opacity only reaches exactly 0 at cleanliness === 100 (never
@@ -66,7 +67,7 @@ const CLEAN_FEEDBACK_KEYFRAMES = `
 
 // The tank "frame": glass, water, reflections, layout container.
 // Composes decor/effects/pet but never reaches into PetRenderer's internals.
-export default function TankStage({ species, colour, name, lastPettedAt, expression, mood, stats, isEating, isFeeding, feedTrigger, isCleaning, isPlaying, onPetPersist }) {
+export default function TankStage({ species, colour, name, lastPettedAt, expression, mood, stats, isEating, isFeeding, feedTrigger, isCleaning, isPlaying, onPetPersist, thoughtText, thoughtVisible }) {
   // Always the real stat-derived value — never forced to 0 during the Clean
   // action. The existing transition-opacity below animates smoothly from
   // whatever the overlay's current opacity is to this new target the moment
@@ -102,6 +103,7 @@ export default function TankStage({ species, colour, name, lastPettedAt, express
       </div>
       <TankDecor />
       <PetShadow mood={mood} isFeeding={isFeeding} isPlaying={isPlaying} />
+      <PetThoughtBubble text={thoughtText} visible={thoughtVisible} />
       <PetRig
         species={species}
         colour={colour}
