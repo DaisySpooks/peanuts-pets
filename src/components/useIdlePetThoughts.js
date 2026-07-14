@@ -19,7 +19,11 @@ function randomDelay() {
 // open). Returns { text, visible } — `text` stays set through the fade-out
 // so the bubble can animate opacity down before unmounting, `visible`
 // toggles the CSS transition.
-export function useIdlePetThoughts(temperament) {
+//
+// `enabled` (default true) lets a caller hold the loop off entirely — used
+// by useDailyGreeting.js to keep idle thoughts from starting until the
+// once-a-day greeting has finished its own cycle.
+export function useIdlePetThoughts(temperament, { enabled = true } = {}) {
   const [thought, setThought] = useState(null)
   const [visible, setVisible] = useState(false)
   const poolRef = useRef([])
@@ -45,6 +49,8 @@ export function useIdlePetThoughts(temperament) {
   }, [temperament])
 
   useEffect(() => {
+    if (!enabled) return undefined
+
     const scheduleNext = () => {
       scheduleTimeoutRef.current = setTimeout(() => {
         const pool = poolRef.current
@@ -81,7 +87,7 @@ export function useIdlePetThoughts(temperament) {
       clearTimeout(unmountTimeoutRef.current)
       cancelAnimationFrame(fadeInFrameRef.current)
     }
-  }, [])
+  }, [enabled])
 
   return { text: thought?.text ?? null, visible }
 }

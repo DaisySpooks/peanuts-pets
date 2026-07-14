@@ -26,7 +26,7 @@ import {
   validatePetType,
 } from './pets.js'
 import { getNutReserveBalance, spendNutReservePoints } from './nutReserve.js'
-import { getThoughtsForTemperament } from './petThoughts.js'
+import { getGreetingsForTemperament, getThoughtsForTemperament } from './petThoughts.js'
 import {
   createPendingPetPurchase,
   deletePendingPetPurchase,
@@ -419,6 +419,19 @@ app.get('/api/pet-thoughts/:temperament', accessRateLimiter, (req, res) => {
   }
 
   res.json({ thoughts })
+})
+
+// Same static/public shape as /api/pet-thoughts above, but for the separate
+// once-per-day greeting pool (see server/petThoughts.js).
+app.get('/api/pet-greetings/:temperament', accessRateLimiter, (req, res) => {
+  const greetings = getGreetingsForTemperament(req.params.temperament)
+
+  if (!greetings) {
+    res.status(400).json({ error: 'invalid_temperament' })
+    return
+  }
+
+  res.json({ greetings })
 })
 
 async function resolveExistingPetCreateResponse({ res, discordUserId, pet, getLatestPurchase }) {

@@ -6,6 +6,7 @@ import PetIdentityCard, { MobilePetIdentityCard } from './PetIdentityCard.jsx'
 import { playFoodDrop, playEating, playTankClean, playPlay } from '../lib/audio.js'
 import { PET_EXPRESSIONS, useTemporaryExpression } from './useTemporaryExpression.js'
 import { useIdlePetThoughts } from './useIdlePetThoughts.js'
+import { useDailyGreeting } from './useDailyGreeting.js'
 
 // Pellet sinks toward the mouth over this long (matches the pellet-drop
 // animation duration in tailwind.config.js); mouth-eating only kicks in
@@ -88,7 +89,12 @@ export default function HabitatScreen({
   const [pendingAction, setPendingAction] = useState(null)
   const [actionError, setActionError] = useState(null)
   const { expression, showExpression } = useTemporaryExpression()
-  const { text: thoughtText, visible: thoughtVisible } = useIdlePetThoughts(pet.temperament)
+  const { text: greetingText, visible: greetingVisible, active: greetingActive } = useDailyGreeting(pet.temperament)
+  const { text: idleThoughtText, visible: idleThoughtVisible } = useIdlePetThoughts(pet.temperament, {
+    enabled: !greetingActive,
+  })
+  const thoughtText = greetingActive ? greetingText : idleThoughtText
+  const thoughtVisible = greetingActive ? greetingVisible : idleThoughtVisible
   const pelletTimeoutRef = useRef(null)
   const eatingStartTimeoutRef = useRef(null)
   const eatingEndTimeoutRef = useRef(null)

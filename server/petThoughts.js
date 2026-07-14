@@ -58,3 +58,64 @@ export function getThoughtsForTemperament(temperament) {
   if (!thoughts) return null
   return thoughts.map((thought) => ({ ...thought }))
 }
+
+// Daily Greeting Thoughts (Phase: first-visit-of-day greeting). A pool
+// completely separate from TEMPERAMENT_THOUGHTS above — greetings are only
+// ever shown once per calendar day, right when the habitat loads, never as
+// part of the idle-thought rotation.
+const TEMPERAMENT_GREETINGS = {
+  playful: [
+    { key: 'playful_waiting', text: "You're back! I was waiting for you!" },
+    { key: 'playful_fun', text: "There you are! Ready to have some fun?" },
+    { key: 'playful_energy', text: "Hi! I saved all my energy for you!" },
+    { key: 'playful_play', text: "You came back! Let's play!" },
+    { key: 'playful_glad', text: "I'm so glad you're here!" },
+  ],
+  curious: [
+    { key: 'curious_tell', text: "You're back! I have so much to tell you." },
+    { key: 'curious_visit', text: "There you are! I was wondering when you'd visit." },
+    { key: 'curious_day', text: "Hi! Did anything interesting happen while you were away?" },
+    { key: 'curious_question', text: "You came back! I have a question for you." },
+    { key: 'curious_thinking', text: "I'm glad you're here. I've been thinking." },
+  ],
+  gentle: [
+    { key: 'gentle_happy', text: "Welcome back. I'm happy to see you." },
+    { key: 'gentle_missed', text: "There you are. I missed having you here." },
+    { key: 'gentle_visit', text: "Hi again. It feels nicer when you visit." },
+    { key: 'gentle_glad', text: "I'm so glad you came back." },
+    { key: 'gentle_kind', text: "Welcome back. I hope your day has been kind." },
+  ],
+  sleepy: [
+    { key: 'sleepy_hi', text: "Oh... you're back. Hi." },
+    { key: 'sleepy_waking', text: "There you are. I was just waking up." },
+    { key: 'sleepy_missed', text: "Welcome back... I missed you a little." },
+    { key: 'sleepy_visit', text: "Hi. I'm glad you came to visit." },
+    { key: 'sleepy_cozy', text: "You're back. I saved you a cozy spot." },
+  ],
+  foodie: [
+    { key: 'foodie_snacks', text: "You're back! Did you bring snacks?" },
+    { key: 'foodie_hoping', text: "There you are! I was hoping you'd visit." },
+    { key: 'foodie_food', text: "Hi! I'm glad you came back... and maybe brought food." },
+    { key: 'foodie_hungry', text: "Welcome back! I was getting hungry without you." },
+    { key: 'foodie_treat', text: "You came back! That calls for a treat." },
+  ],
+}
+
+// Returns a random greeting ({ key, text }) for a temperament, or null when
+// the temperament has no greeting pool (unknown/missing temperament).
+export function getRandomGreetingForTemperament(temperament, randomFn = Math.random) {
+  const greetings = TEMPERAMENT_GREETINGS[temperament]
+  if (!greetings || greetings.length === 0) return null
+
+  const index = Math.min(Math.floor(randomFn() * greetings.length), greetings.length - 1)
+  return greetings[index]
+}
+
+// Returns the full greeting pool for a temperament (a copy, so callers can't
+// mutate the shared table), or null for an unknown temperament. Same
+// full-pool-to-client pattern as getThoughtsForTemperament.
+export function getGreetingsForTemperament(temperament) {
+  const greetings = TEMPERAMENT_GREETINGS[temperament]
+  if (!greetings) return null
+  return greetings.map((greeting) => ({ ...greeting }))
+}

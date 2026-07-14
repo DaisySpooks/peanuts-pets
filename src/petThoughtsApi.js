@@ -12,3 +12,16 @@ export async function getPetThoughts(temperament) {
     return []
   }
 }
+
+// Same shape as getPetThoughts, but for the separate once-per-day greeting
+// pool (see server/petThoughts.js).
+export async function getPetGreetings(temperament) {
+  try {
+    const response = await fetch(`/api/pet-greetings/${encodeURIComponent(temperament)}`)
+    if (!response.ok) return []
+    const data = await response.json().catch(() => ({}))
+    return Array.isArray(data.greetings) ? data.greetings : []
+  } catch {
+    return []
+  }
+}
