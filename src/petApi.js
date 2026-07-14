@@ -48,6 +48,19 @@ export async function performPetAction(action) {
   return data.pet
 }
 
+export async function performTreat() {
+  const response = await fetch('/api/pets/treat', {
+    method: 'POST',
+    credentials: 'include',
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw buildApiError(data, response, `pet_treat_failed_${response.status}`)
+  }
+  const data = await response.json()
+  return data.pet
+}
+
 export async function performPetting() {
   const response = await fetch('/api/pets/pet', {
     method: 'POST',

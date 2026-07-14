@@ -8,7 +8,7 @@ import FirstAdoptionCelebration from './components/FirstAdoptionCelebration.jsx'
 import { MobileFixedAuthMenu } from './components/MobileAuthMenu.jsx'
 import { useAuthStatus } from './auth/useAuthStatus.js'
 import { logout } from './auth/discordAuth.js'
-import { getMyPet, performPetAction, performPetting } from './petApi.js'
+import { getMyPet, performPetAction, performPetting, performTreat } from './petApi.js'
 import { PET_OPTIONS } from './petOptions.js'
 import { defaultStats } from './mockData.js'
 import { buildPetActions } from './petActions.js'
@@ -213,6 +213,11 @@ export default function App() {
       }}
       onPetPersist={async () => {
         const updatedPet = await performPetting()
+        setPet(updatedPet)
+        return updatedPet
+      }}
+      onTreatPersist={async () => {
+        const updatedPet = await performTreat()
         setPet(updatedPet)
         return updatedPet
       }}

@@ -42,6 +42,13 @@ const STAT_DECAY_PER_DAY = {
 }
 const MAX_SIMULATED_ELAPSED_HOURS = 24 * 365
 const PETTING_COOLDOWN_MS = 12 * 60 * 60 * 1000
+// Treat is a separate sink from the feed/clean/play care actions above: it
+// grants a flat +1 Affection (both the session `affection` stat and
+// permanent `lifetime_affection`), never a care stat, never a temperament
+// modifier, and is limited to once per calendar day rather than a rolling
+// cooldown window. Calendar day is computed in UTC — deterministic
+// regardless of the server host's local timezone — see hasGivenTreatToday.
+const TREAT_AFFECTION_GAIN = 1
 const PET_ACTIONS = {
   feed: { statKey: 'hunger', delta: 25, columnTimestampKey: 'last_feed_at', petTimestampKey: 'lastFeedAt', cooldownMs: 2 * 60 * 60 * 1000 },
   clean: { statKey: 'cleanliness', delta: 25, columnTimestampKey: 'last_clean_at', petTimestampKey: 'lastCleanAt', cooldownMs: 3 * 60 * 60 * 1000 },
@@ -66,6 +73,8 @@ let hasColourColumn = true
 let hasTemperamentColumn = true
 // Same independent-append treatment as colour.
 let hasLifetimeAffectionColumn = true
+// Same independent-append treatment as colour.
+let hasLastTreatAtColumn = true
 
 export function validatePetType(petType) {
   return typeof petType === 'string' && PET_TYPES.includes(petType)
@@ -109,6 +118,7 @@ function getPetSelectClause({ includeDiscordUserId = false } = {}) {
   if (hasColourColumn) select = `${select},colour`
   if (hasTemperamentColumn) select = `${select},temperament`
   if (hasLifetimeAffectionColumn) select = `${select},lifetime_affection`
+  if (hasLastTreatAtColumn) select = `${select},last_treat_at`
   return select
 }
 
@@ -167,6 +177,7 @@ function toPet(row, { includeDiscordUserId = false } = {}) {
     lastCleanAt: row.last_clean_at ?? null,
     lastPlayAt: row.last_play_at ?? null,
     lastPettedAt: row.last_petted_at ?? null,
+    lastTreatAt: row.last_treat_at ?? null,
     updatedAt: row.updated_at ?? row.created_at ?? null,
     lastDecayAt: row.last_decay_at ?? row.updated_at ?? row.created_at ?? null,
   }
@@ -201,6 +212,10 @@ async function detectMissingOptionalColumns(response) {
   }
   if (hasLifetimeAffectionColumn && bodyText.includes('lifetime_affection')) {
     hasLifetimeAffectionColumn = false
+    detectedMissingColumn = true
+  }
+  if (hasLastTreatAtColumn && bodyText.includes('last_treat_at')) {
+    hasLastTreatAtColumn = false
     detectedMissingColumn = true
   }
 
@@ -510,6 +525,61 @@ export async function applyPettingInteraction({ supabaseUrl, serviceRoleKey, dis
   return toPet(rows[0])
 }
 
+// UTC calendar-day key (YYYY-MM-DD), used so "once per day" resets at the
+// same instant worldwide rather than depending on the server host's local
+// timezone.
+function getUtcDateKey(ms) {
+  return new Date(ms).toISOString().slice(0, 10)
+}
+
+// Exported so the client can mirror the same day-boundary logic for
+// disabling the Treat card (see src/petActions.js) — the server below
+// remains the sole enforcement authority.
+export function hasGivenTreatToday(lastTreatAt, nowMs = Date.now()) {
+  if (!lastTreatAt) return false
+  const lastTreatMs = new Date(lastTreatAt).getTime()
+  if (!Number.isFinite(lastTreatMs)) return false
+  return getUtcDateKey(lastTreatMs) === getUtcDateKey(nowMs)
+}
+
+// Grants a flat +1 Affection (both `affection` and `lifetime_affection`),
+// once per UTC calendar day. Unlike applyPettingInteraction, this never
+// restores hunger/happiness and never consults petTemperamentEffects —
+// Treat's affection gain is a fixed amount, not a temperament-modified one
+// (no getPettingAffectionBonus lookup, unlike petting's Curious bonus).
+// Cost (Nutshells) is charged by the caller (see server/index.js) before
+// this is invoked; that ordering matters, since a failed spend must never
+// reach this function.
+export async function applyPetTreat({ supabaseUrl, serviceRoleKey, discordUserId }) {
+  const existing = await getPetByDiscordUserId({ supabaseUrl, serviceRoleKey, discordUserId })
+  if (!existing) return null
+
+  if (!hasLastTreatAtColumn || !hasLifetimeAffectionColumn || !hasAffectionColumn) {
+    const error = new Error('treat_schema_missing')
+    error.code = 'treat_schema_missing'
+    throw error
+  }
+
+  if (hasGivenTreatToday(existing.lastTreatAt)) {
+    const error = new Error('treat_already_given_today')
+    error.code = 'treat_already_given_today'
+    throw error
+  }
+
+  const now = new Date().toISOString()
+  return patchPetByDiscordUserId({
+    supabaseUrl,
+    serviceRoleKey,
+    discordUserId,
+    payload: {
+      affection: existing.affection + TREAT_AFFECTION_GAIN,
+      lifetime_affection: existing.lifetimeAffection + TREAT_AFFECTION_GAIN,
+      last_treat_at: now,
+      updated_at: now,
+    },
+  })
+}
+
 export async function getPetSummary({ supabaseUrl, serviceRoleKey, recentLimit = 10 }) {
   let rows = null
 
@@ -690,6 +760,7 @@ export async function resetPetCooldownsForAdmin({ supabaseUrl, serviceRoleKey, d
       last_clean_at: null,
       last_play_at: null,
       last_petted_at: null,
+      last_treat_at: null,
       updated_at: new Date().toISOString(),
     },
   })

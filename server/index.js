@@ -12,11 +12,13 @@ import { createSessionCookieValue, verifySessionCookieValue } from './session.js
 import { decideAccess, decideAdminAccess } from './access.js'
 import {
   applyPetCareAction,
+  applyPetTreat,
   applyPettingInteraction,
   createPetIfNotExists,
   deletePetByDiscordUserId,
   getPetByDiscordUserId,
   getPetSummary,
+  hasGivenTreatToday,
   listPets,
   resetPetCooldownsForAdmin,
   toDisplayPet,
@@ -71,6 +73,7 @@ const {
 
 const PORT = process.env.PORT || 8787
 const FIRST_PET_PRICE_POINTS = 20
+const TREAT_PRICE_POINTS = 5
 // Only used to send the browser back to the frontend after the OAuth
 // redirect round-trip; not a secret and not part of the token exchange.
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
@@ -702,6 +705,78 @@ app.post('/api/pets/pet', accessRateLimiter, requireAccess, async (req, res) => 
     res.status(503).json({ error: 'petting_failed' })
   }
 })
+
+// Deps-injected the same way as createPetRouteHandler above, so this can be
+// tested by stubbing getPetByDiscordUserId/spendNutReservePoints/
+// applyPetTreat instead of hitting Supabase/Nut Reserve.
+export function treatPetRouteHandler(deps = {}) {
+  const getPet = deps.getPetByDiscordUserId ?? getPetByDiscordUserId
+  const applyTreat = deps.applyPetTreat ?? applyPetTreat
+  const spendPoints = deps.spendNutReservePoints ?? spendNutReservePoints
+  const supabaseUrl = deps.supabaseUrl ?? SUPABASE_URL
+  const serviceRoleKey = deps.serviceRoleKey ?? SUPABASE_SERVICE_ROLE_KEY
+  const logger = deps.logger ?? console
+
+  return async function handleTreatPet(req, res) {
+    try {
+      const existing = await getPet({
+        supabaseUrl,
+        serviceRoleKey,
+        discordUserId: req.discordUserId,
+      })
+
+      if (!existing) {
+        res.status(404).json({ error: 'pet_not_found' })
+        return
+      }
+
+      // Checked here (before spending) so an already-used-today request
+      // never touches Nut Reserve at all, per "if spending fails, do not
+      // grant the treat" — and its inverse, never charge for a treat that
+      // can't be granted.
+      if (hasGivenTreatToday(existing.lastTreatAt)) {
+        res.status(409).json({ error: 'treat_already_given_today' })
+        return
+      }
+
+      try {
+        await spendPoints({
+          discordUserId: req.discordUserId,
+          amount: TREAT_PRICE_POINTS,
+          reason: 'peanuts_pets_treat',
+          // Deterministic per user per UTC day, so a duplicate/retried
+          // request the same day replays the same spend instead of
+          // charging twice.
+          idempotencyKey: `treat_${req.discordUserId}_${new Date().toISOString().slice(0, 10)}`,
+        })
+      } catch (error) {
+        sendPetPaymentFailed(res, error)
+        return
+      }
+
+      const pet = await applyTreat({ supabaseUrl, serviceRoleKey, discordUserId: req.discordUserId })
+      if (!pet) {
+        res.status(404).json({ error: 'pet_not_found' })
+        return
+      }
+
+      res.json({ pet: toDisplayPet(pet) })
+    } catch (error) {
+      if (error.code === 'treat_already_given_today') {
+        res.status(409).json({ error: 'treat_already_given_today' })
+        return
+      }
+      if (error.code === 'treat_schema_missing') {
+        res.status(503).json({ error: 'treat_schema_missing' })
+        return
+      }
+      logger.error('Pet treat failed:', error.message)
+      res.status(503).json({ error: 'pet_treat_failed' })
+    }
+  }
+}
+
+app.post('/api/pets/treat', accessRateLimiter, requireAccess, treatPetRouteHandler())
 
 app.get('/api/admin/summary', accessRateLimiter, requireAdminAccess, async (req, res) => {
   try {

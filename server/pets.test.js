@@ -3,8 +3,10 @@ import test from 'node:test'
 
 import {
   applyPetCareAction,
+  applyPetTreat,
   applyPettingInteraction,
   getPetByDiscordUserId,
+  hasGivenTreatToday,
 } from './pets.js'
 
 const SUPABASE_URL = 'https://supabase.example'
@@ -285,4 +287,139 @@ test('non-curious petting grants the normal +1 affection', async () => {
   })
 
   assert.equal(result.affection, 6)
+})
+
+// --- Treat / Lifetime Affection ---
+
+test('hasGivenTreatToday is false when there is no prior treat', () => {
+  assert.equal(hasGivenTreatToday(null), false)
+})
+
+test('hasGivenTreatToday is true for a treat given earlier the same UTC day', () => {
+  const now = Date.parse('2026-07-13T18:00:00.000Z')
+  assert.equal(hasGivenTreatToday('2026-07-13T02:00:00.000Z', now), true)
+})
+
+test('hasGivenTreatToday is false once the UTC calendar day has rolled over', () => {
+  const now = Date.parse('2026-07-14T00:00:01.000Z')
+  assert.equal(hasGivenTreatToday('2026-07-13T23:59:59.000Z', now), false)
+})
+
+test('applyPetTreat grants a flat +1 to both affection and lifetime affection, independent of temperament', async () => {
+  global.fetch = async (input, init) => {
+    if (!init || init.method === undefined) {
+      // Curious normally grants a +1 petting bonus (see
+      // getPettingAffectionBonus) — applyPetTreat must never look that up.
+      return createJsonResponse([createRow({
+        temperament: 'curious',
+        affection: 5,
+        lifetime_affection: 12,
+        last_treat_at: null,
+      })])
+    }
+    const payload = JSON.parse(init.body)
+    assert.equal(payload.affection, 6)
+    assert.equal(payload.lifetime_affection, 13)
+    assert.ok(typeof payload.last_treat_at === 'string')
+    return createJsonResponse([createRow({
+      temperament: 'curious',
+      affection: payload.affection,
+      lifetime_affection: payload.lifetime_affection,
+      last_treat_at: payload.last_treat_at,
+    })])
+  }
+
+  const result = await applyPetTreat({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    discordUserId: 'user-1',
+  })
+
+  assert.equal(result.affection, 6)
+  assert.equal(result.lifetimeAffection, 13)
+})
+
+test('applyPetTreat with a non-bonus temperament still grants exactly +1 to both fields', async () => {
+  global.fetch = async (input, init) => {
+    if (!init || init.method === undefined) {
+      return createJsonResponse([createRow({
+        temperament: 'sleepy',
+        affection: 5,
+        lifetime_affection: 12,
+        last_treat_at: null,
+      })])
+    }
+    const payload = JSON.parse(init.body)
+    assert.equal(payload.affection, 6)
+    assert.equal(payload.lifetime_affection, 13)
+    return createJsonResponse([createRow({
+      temperament: 'sleepy',
+      affection: payload.affection,
+      lifetime_affection: payload.lifetime_affection,
+      last_treat_at: payload.last_treat_at,
+    })])
+  }
+
+  const result = await applyPetTreat({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    discordUserId: 'user-1',
+  })
+
+  assert.equal(result.affection, 6)
+  assert.equal(result.lifetimeAffection, 13)
+})
+
+test('applyPetTreat never touches hunger or happiness', async () => {
+  global.fetch = async (input, init) => {
+    if (!init || init.method === undefined) {
+      return createJsonResponse([createRow({
+        temperament: 'foodie',
+        hunger: 60,
+        happiness: 70,
+        affection: 5,
+        lifetime_affection: 12,
+        last_treat_at: null,
+      })])
+    }
+    const payload = JSON.parse(init.body)
+    assert.equal(payload.hunger, undefined)
+    assert.equal(payload.happiness, undefined)
+    return createJsonResponse([createRow({
+      temperament: 'foodie',
+      hunger: 60,
+      happiness: 70,
+      affection: payload.affection,
+      lifetime_affection: payload.lifetime_affection,
+      last_treat_at: payload.last_treat_at,
+    })])
+  }
+
+  const result = await applyPetTreat({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    discordUserId: 'user-1',
+  })
+
+  assert.equal(result.hunger, 60)
+  assert.equal(result.happiness, 70)
+})
+
+test('applyPetTreat rejects a second treat the same UTC day', async () => {
+  global.fetch = async () => createJsonResponse([createRow({
+    lifetime_affection: 12,
+    last_treat_at: new Date().toISOString(),
+  })])
+
+  await assert.rejects(
+    applyPetTreat({
+      supabaseUrl: SUPABASE_URL,
+      serviceRoleKey: SERVICE_ROLE_KEY,
+      discordUserId: 'user-1',
+    }),
+    (error) => {
+      assert.equal(error.code, 'treat_already_given_today')
+      return true
+    },
+  )
 })

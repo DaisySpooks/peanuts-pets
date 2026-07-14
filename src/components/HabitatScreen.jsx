@@ -7,6 +7,8 @@ import { playFoodDrop, playEating, playTankClean, playPlay } from '../lib/audio.
 import { PET_EXPRESSIONS, useTemporaryExpression } from './useTemporaryExpression.js'
 import { useIdlePetThoughts } from './useIdlePetThoughts.js'
 import { useDailyGreeting } from './useDailyGreeting.js'
+import TreatConfirmDialog from './TreatConfirmDialog.jsx'
+import { getRandomTreatReaction } from '../petTreatReactions.js'
 
 // Pellet sinks toward the mouth over this long (matches the pellet-drop
 // animation duration in tailwind.config.js); mouth-eating only kicks in
@@ -27,6 +29,13 @@ const CLEANING_DURATION_MS = 1500
 const PLAYING_DURATION_MS = 1400
 const HAPPY_EXPRESSION_DURATION_MS = 700
 const FEED_HAPPY_EXPRESSION_DURATION_MS = (EATING_END_MS - EATING_START_MS) + HAPPY_EXPRESSION_DURATION_MS
+
+// Treat reaction bubble: shorter than the daily-greeting bubble (which is
+// meant to linger) since this is a direct response to a click, not
+// something to notice ambiently — same fade shape (visible hold, then fade)
+// as useDailyGreeting/useIdlePetThoughts, just on a shorter timer.
+const TREAT_REACTION_VISIBLE_DURATION_MS = 4000
+const TREAT_REACTION_FADE_MS = 400
 
 const LOW_CLEANLINESS_THRESHOLD = 40
 const HIGH_CLEANLINESS_THRESHOLD = 95
@@ -76,6 +85,7 @@ export default function HabitatScreen({
   actions,
   onActionPersist,
   onPetPersist,
+  onTreatPersist,
   mobileIdentityAuthMenu = null,
 }) {
   const statsForMood = Object.fromEntries(stats.map((s) => [s.key, s.value]))
@@ -88,19 +98,31 @@ export default function HabitatScreen({
   const [isPlaying, setIsPlaying] = useState(false)
   const [pendingAction, setPendingAction] = useState(null)
   const [actionError, setActionError] = useState(null)
+  const [treatDialogOpen, setTreatDialogOpen] = useState(false)
+  const [isTreatSubmitting, setIsTreatSubmitting] = useState(false)
+  const [treatError, setTreatError] = useState(null)
+  const [treatReactionText, setTreatReactionText] = useState(null)
+  const [treatReactionVisible, setTreatReactionVisible] = useState(false)
   const { expression, showExpression } = useTemporaryExpression()
   const { text: greetingText, visible: greetingVisible, active: greetingActive } = useDailyGreeting(pet.temperament)
   const { text: idleThoughtText, visible: idleThoughtVisible } = useIdlePetThoughts(pet.temperament, {
     enabled: !greetingActive,
   })
-  const thoughtText = greetingActive ? greetingText : idleThoughtText
-  const thoughtVisible = greetingActive ? greetingVisible : idleThoughtVisible
+  // Treat reaction takes priority over the daily greeting and idle thoughts
+  // while it's showing — same "one thing owns the bubble at a time"
+  // priority order the greeting already uses over idle thoughts.
+  const thoughtText = treatReactionText ?? (greetingActive ? greetingText : idleThoughtText)
+  const thoughtVisible = treatReactionText
+    ? treatReactionVisible
+    : (greetingActive ? greetingVisible : idleThoughtVisible)
   const pelletTimeoutRef = useRef(null)
   const eatingStartTimeoutRef = useRef(null)
   const eatingEndTimeoutRef = useRef(null)
   const eatingSoundTimeoutRef = useRef(null)
   const cleaningTimeoutRef = useRef(null)
   const playingTimeoutRef = useRef(null)
+  const treatReactionHideTimeoutRef = useRef(null)
+  const treatReactionEndTimeoutRef = useRef(null)
   const statusText = getPetStatusText({ isFeeding, isCleaning, isPlaying, stats: statsForMood })
   const activeActionKey = isFeeding ? 'feed' : isCleaning ? 'clean' : isPlaying ? 'play' : null
 
@@ -111,10 +133,66 @@ export default function HabitatScreen({
     clearTimeout(eatingSoundTimeoutRef.current)
     clearTimeout(cleaningTimeoutRef.current)
     clearTimeout(playingTimeoutRef.current)
+    clearTimeout(treatReactionHideTimeoutRef.current)
+    clearTimeout(treatReactionEndTimeoutRef.current)
   }, [])
+
+  const showTreatReaction = (text) => {
+    clearTimeout(treatReactionHideTimeoutRef.current)
+    clearTimeout(treatReactionEndTimeoutRef.current)
+    setTreatReactionText(text)
+    setTreatReactionVisible(true)
+    treatReactionHideTimeoutRef.current = setTimeout(() => {
+      setTreatReactionVisible(false)
+      treatReactionEndTimeoutRef.current = setTimeout(() => {
+        setTreatReactionText(null)
+      }, TREAT_REACTION_FADE_MS)
+    }, TREAT_REACTION_VISIBLE_DURATION_MS)
+  }
+
+  function getTreatErrorMessage(error) {
+    if (error?.message === 'treat_already_given_today') {
+      return "You've already given a treat today. Try again tomorrow."
+    }
+    if (error?.message === 'pet_payment_failed') {
+      const balance = Number.isFinite(error.balance) ? error.balance : null
+      return balance !== null
+        ? `You need 5 Nutshells. You currently have ${balance} ${balance === 1 ? 'Nutshell' : 'Nutshells'}.`
+        : 'Could not spend Nutshells for this treat. Please try again.'
+    }
+    return 'Could not give a treat right now. Please try again.'
+  }
+
+  const handleConfirmTreat = async () => {
+    if (isTreatSubmitting) return
+    setIsTreatSubmitting(true)
+    setTreatError(null)
+    try {
+      await onTreatPersist?.()
+      setTreatDialogOpen(false)
+      showExpression(PET_EXPRESSIONS.happy, HAPPY_EXPRESSION_DURATION_MS)
+      showTreatReaction(getRandomTreatReaction())
+    } catch (error) {
+      setTreatError(getTreatErrorMessage(error))
+    } finally {
+      setIsTreatSubmitting(false)
+    }
+  }
+
+  const handleCancelTreat = () => {
+    if (isTreatSubmitting) return
+    setTreatDialogOpen(false)
+    setTreatError(null)
+  }
 
   const handleAction = (actionKey) => {
     if (pendingAction) return
+
+    if (actionKey === 'treat') {
+      setTreatError(null)
+      setTreatDialogOpen(true)
+      return
+    }
 
     if (actionKey === 'feed') {
       // Fired before any of the state/timer bookkeeping below so there's
@@ -335,6 +413,15 @@ export default function HabitatScreen({
           </div>
         </main>
       </div>
+
+      <TreatConfirmDialog
+        open={treatDialogOpen}
+        petName={pet.name}
+        isSubmitting={isTreatSubmitting}
+        errorMessage={treatError}
+        onConfirm={handleConfirmTreat}
+        onCancel={handleCancelTreat}
+      />
     </div>
   )
 }

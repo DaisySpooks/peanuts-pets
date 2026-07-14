@@ -33,18 +33,19 @@ export default function ActionCard({ actions, onAction, activeKey, pendingKey, m
         </>
       ) : null}
       <div className="mb-3 h-px bg-gradient-to-r from-transparent via-[#c9a44c]/60 to-transparent" />
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-2 sm:gap-3">
         {actions.map((action) => {
           const available = action.status === 'available'
           const hasPendingAction = pendingKey !== null
           const isPending = available && action.key === pendingKey
           const isEnabled = available && !hasPendingAction
           const isActive = available && action.key === activeKey
+          const displayLabel = available ? action.label : (action.unavailableLabel ?? action.label)
           const accessibleLabel = isEnabled
             ? `${action.label}, ready${isActive ? ', in progress' : ''}`
             : isPending
               ? `${action.label}, saving`
-            : `${action.label}, on cooldown, ready in ${action.readyIn}`
+            : `${displayLabel}, ${action.readyIn}`
           return (
             <button
               key={action.key}
@@ -55,27 +56,36 @@ export default function ActionCard({ actions, onAction, activeKey, pendingKey, m
               onClick={isEnabled ? () => onAction?.(action.key) : undefined}
               className={
                 available
-                  ? `flex flex-col items-center gap-1 rounded-xl border-2 border-[#7a4f22] bg-gradient-to-b from-[#f9e4b4] via-[#e3b968] to-[#a97535] px-3 py-3.5 text-[#3b2410] shadow-[0_3px_0_rgba(90,52,14,0.65),0_12px_20px_-6px_rgba(40,22,6,0.62),inset_0_2px_0_rgba(255,250,232,0.75),inset_0_-5px_7px_rgba(101,60,17,0.55)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:brightness-105 hover:shadow-[0_4px_0_rgba(90,52,14,0.65),0_14px_24px_-6px_rgba(40,22,6,0.66),inset_0_2px_0_rgba(255,250,232,0.8),inset_0_-5px_7px_rgba(101,60,17,0.55)] active:translate-y-[3px] active:shadow-[0_0_0_rgba(90,52,14,0.65),inset_0_3px_6px_rgba(60,35,10,0.55)] active:brightness-95 ${
+                  ? `flex flex-col items-center gap-1 rounded-xl border-2 border-[#7a4f22] bg-gradient-to-b from-[#f9e4b4] via-[#e3b968] to-[#a97535] px-2 py-3 text-[#3b2410] shadow-[0_3px_0_rgba(90,52,14,0.65),0_12px_20px_-6px_rgba(40,22,6,0.62),inset_0_2px_0_rgba(255,250,232,0.75),inset_0_-5px_7px_rgba(101,60,17,0.55)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:brightness-105 hover:shadow-[0_4px_0_rgba(90,52,14,0.65),0_14px_24px_-6px_rgba(40,22,6,0.66),inset_0_2px_0_rgba(255,250,232,0.8),inset_0_-5px_7px_rgba(101,60,17,0.55)] active:translate-y-[3px] active:shadow-[0_0_0_rgba(90,52,14,0.65),inset_0_3px_6px_rgba(60,35,10,0.55)] active:brightness-95 sm:px-3 sm:py-3.5 ${
                       isActive ? 'ring-2 ring-[#f5d38f]/70 ring-offset-2 ring-offset-[#2c2014] brightness-105' : ''
                     }`
-                  : 'flex cursor-not-allowed flex-col items-center gap-1 rounded-xl border border-black/50 bg-[#1a130b] px-3 py-3.5 text-[#a8927a]/50 opacity-80 shadow-[inset_0_2px_5px_rgba(0,0,0,0.8)]'
+                  : 'flex cursor-not-allowed flex-col items-center gap-1 rounded-xl border border-black/50 bg-[#1a130b] px-2 py-3 text-[#a8927a]/50 opacity-80 shadow-[inset_0_2px_5px_rgba(0,0,0,0.8)] sm:px-3 sm:py-3.5'
               }
             >
-              <span className="flex items-center gap-1.5 text-sm font-bold">
-                <span
-                  aria-hidden="true"
-                  className={
-                    available
-                      ? 'flex h-5 w-5 items-center justify-center rounded-full bg-white/25 text-xs leading-none shadow-[inset_0_1px_1px_rgba(255,255,255,0.5)]'
-                      : 'flex h-5 w-5 items-center justify-center rounded-full bg-black/30 text-xs leading-none'
-                  }
-                >
-                  {ACTION_ICONS[action.key] || '⭐'}
-                </span>
-                {action.label}
+              <span className="flex flex-col items-center gap-1 text-center text-xs font-bold leading-tight sm:text-sm">
+                {action.iconSrc ? (
+                  <img
+                    src={action.iconSrc}
+                    alt=""
+                    aria-hidden="true"
+                    className="h-6 w-6 object-contain drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]"
+                  />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className={
+                      available
+                        ? 'flex h-5 w-5 items-center justify-center rounded-full bg-white/25 text-xs leading-none shadow-[inset_0_1px_1px_rgba(255,255,255,0.5)]'
+                        : 'flex h-5 w-5 items-center justify-center rounded-full bg-black/30 text-xs leading-none'
+                    }
+                  >
+                    {ACTION_ICONS[action.key] || '⭐'}
+                  </span>
+                )}
+                <span>{displayLabel}</span>
               </span>
-              <span className="text-[11px] leading-tight">
-                {isPending ? 'Saving…' : available ? 'Ready' : action.readyIn}
+              <span className="text-center text-[10px] leading-tight sm:text-[11px]">
+                {isPending ? 'Saving…' : available ? (action.availableSubtext ?? 'Ready') : action.readyIn}
               </span>
             </button>
           )
