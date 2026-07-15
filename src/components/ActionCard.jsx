@@ -10,7 +10,7 @@ const ACTION_ICONS = {
 
 export default function ActionCard({ actions, onAction, activeKey, pendingKey, moodText }) {
   return (
-    <div className="group relative overflow-hidden rounded-2xl border-2 border-[#7a4f22] bg-gradient-to-b from-[#5f4a34] via-[#42321f] to-[#2c2014] p-4 shadow-[0_22px_44px_-16px_rgba(10,6,2,0.75),0_8px_16px_-6px_rgba(10,6,2,0.6),inset_0_1px_0_rgba(255,224,170,0.16),inset_0_-3px_6px_rgba(0,0,0,0.45)] ring-1 ring-inset ring-[#c9a44c]/15 transition-transform duration-300 ease-out hover:-translate-y-px">
+    <div className="group relative h-fit self-start overflow-hidden rounded-2xl border-2 border-[#7a4f22] bg-gradient-to-b from-[#5f4a34] via-[#42321f] to-[#2c2014] p-4 shadow-[0_22px_44px_-16px_rgba(10,6,2,0.75),0_8px_16px_-6px_rgba(10,6,2,0.6),inset_0_1px_0_rgba(255,224,170,0.16),inset_0_-3px_6px_rgba(0,0,0,0.45)] ring-1 ring-inset ring-[#c9a44c]/15 transition-transform duration-300 ease-out hover:-translate-y-px">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 opacity-[0.05] mix-blend-overlay"
