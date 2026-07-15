@@ -84,7 +84,7 @@ export default function ActionCard({ actions, onAction, activeKey, pendingKey, m
                 )}
                 <span>{displayLabel}</span>
               </span>
-              <span className="text-center text-[10px] leading-tight sm:text-[11px]">
+              <span className="mt-auto text-center text-[10px] leading-tight sm:text-[11px]">
                 {isPending ? 'Saving…' : available ? (action.availableSubtext ?? 'Ready') : action.readyIn}
               </span>
             </button>
