@@ -88,8 +88,8 @@ const PETTING_INVITE_MIN_INTERVAL_MS = 15000
 const PETTING_INVITE_MAX_INTERVAL_MS = 20000
 const PETTING_INVITE_DURATION_MS = 1100
 // Playful Level 1 "Happy Bounce" personality-unlock celebration (see
-// personalityUnlockAnimations.js) — a small body bob, a slight fin spread,
-// two subtle tail flicks, then settle. One-shot, plays only inside
+// personalityUnlockAnimations.js) — a simple quick vertical body bob with
+// minimal fin motion and no directional flourish. One-shot, plays only inside
 // PersonalityUnlockCelebration.jsx via the celebrationAnimation prop.
 const HAPPY_BOUNCE_BODY_DURATION_MS = 1900
 const HAPPY_BOUNCE_FIN_DURATION_MS = 900
@@ -125,17 +125,17 @@ const HUNGRY_WIGGLE_BODY_DURATION_MS = 1700
 const HUNGRY_WIGGLE_TAIL_DURATION_MS = 1300
 const HUNGRY_WIGGLE_FIN_DURATION_MS = 900
 // Playful Level 3 "Playtime Welcome" personality-unlock greeting (see
-// personalityUnlockAnimations.js) — a brief forward lean, two light tail
-// flicks, and a small fin flutter, then settle facing forward. One-shot,
+// personalityUnlockAnimations.js) — a clear forward approach, a small fin
+// opening, and a held stop facing forward. One-shot,
 // plays only inside PersonalityUnlockCelebration.jsx via the
 // celebrationAnimation prop.
 const PLAYTIME_WELCOME_BODY_DURATION_MS = 1900
 const PLAYTIME_WELCOME_TAIL_DURATION_MS = 1200
 const PLAYTIME_WELCOME_FIN_DURATION_MS = 900
 // Playful Level 5 "Encore!" personality-unlock celebration (see
-// personalityUnlockAnimations.js) — a small forward bounce, brief pause,
-// then a second smaller bounce, with two light tail flicks and a quick fin
-// flutter supporting the "one more time" rhythm before settling happy.
+// personalityUnlockAnimations.js) — two separated tail-led side-to-side
+// beats with a visible pause between them; the body follows without a
+// vertical bounce, before settling happy.
 // Distinct from Level 1 Happy Bounce's single bob and Level 3 Playtime
 // Welcome's greeting-like lean. One-shot, plays only inside
 // PersonalityUnlockCelebration.jsx via the celebrationAnimation prop.
@@ -155,8 +155,9 @@ const SHOW_OFF_TAIL_DURATION_MS = 1000
 const SHOW_OFF_TAIL_DELAY_MS = 350
 const SHOW_OFF_FIN_DURATION_MS = 1200
 // Playful Level 12 "You're Here!" personality-unlock celebration — a smooth
-// approach to the front, bright fin opening, slight tail flourish, a brief
-// attention-holding hover, then a gentle settle. One-shot, plays only inside
+// strongest approach to the front, a long attentive hover with little
+// flourish, then a gentle settle while staying focused forward. One-shot,
+// plays only inside
 // PersonalityUnlockCelebration.jsx via the celebrationAnimation prop.
 const YOURE_HERE_BODY_DURATION_MS = 2800
 const YOURE_HERE_TAIL_DURATION_MS = 850
@@ -432,21 +433,19 @@ const BETTA_KEYFRAMES = `
 }
 @keyframes betta-happy-bounce-body {
   0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  30% { transform: translate(0, -2.5%) rotate(-2deg) scale(1.015); }
-  65% { transform: translate(0, -0.5%) rotate(1deg) scale(1.005); }
+  28% { transform: translate(0, -2.8%) rotate(0deg) scale(1); }
+  58% { transform: translate(0, -0.35%) rotate(0deg) scale(1); }
   100% { transform: translate(0, 0) rotate(0deg) scale(1); }
 }
 @keyframes betta-happy-bounce-fin-spread {
   0%, 100% { transform: scale(1) rotate(0deg); }
-  40% { transform: scale(1.12) rotate(-3deg); }
-  70% { transform: scale(1.04) rotate(1deg); }
+  38% { transform: scale(1.025) rotate(-0.8deg); }
+  68% { transform: scale(1.01) rotate(0deg); }
 }
 @keyframes betta-happy-bounce-tail-flick {
   0%, 100% { transform: rotate(0deg); }
-  20% { transform: rotate(12deg); }
-  40% { transform: rotate(-8deg); }
-  60% { transform: rotate(9deg); }
-  80% { transform: rotate(-5deg); }
+  42% { transform: rotate(2deg); }
+  68% { transform: rotate(0deg); }
 }
 @keyframes betta-curious-peek-body {
   0% { transform: translate(0, 0) rotate(0deg) scale(1); }
@@ -507,81 +506,78 @@ const BETTA_KEYFRAMES = `
 }
 @keyframes betta-playtime-welcome-body {
   0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  30% { transform: translate(-1.5%, -0.3%) rotate(-2.5deg) scale(1.012); }
-  65% { transform: translate(-0.5%, -0.1%) rotate(-0.8deg) scale(1.004); }
+  28% { transform: translate(-3.2%, 0) rotate(0deg) scale(1.01); }
+  58% { transform: translate(-3.2%, 0) rotate(0deg) scale(1.01); }
+  78% { transform: translate(-1.1%, 0) rotate(0deg) scale(1.003); }
   100% { transform: translate(0, 0) rotate(0deg) scale(1); }
 }
 @keyframes betta-playtime-welcome-tail-flick {
   0%, 100% { transform: rotate(0deg); }
-  20% { transform: rotate(11deg); }
-  40% { transform: rotate(-7deg); }
-  60% { transform: rotate(8deg); }
-  80% { transform: rotate(-4deg); }
+  35% { transform: rotate(2deg); }
+  62% { transform: rotate(0deg); }
 }
 @keyframes betta-playtime-welcome-fin-flutter {
   0%, 100% { transform: scale(1) rotate(0deg); }
-  40% { transform: scale(1.04) rotate(-2deg); }
-  70% { transform: scale(1.012) rotate(0.6deg); }
+  38% { transform: scale(1.07) rotate(-1.5deg); }
+  68% { transform: scale(1.025) rotate(0deg); }
 }
 @keyframes betta-encore-body {
   0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  18% { transform: translate(-1.2%, -0.55%) rotate(-2deg) scale(1.012); }
-  32% { transform: translate(-1.2%, -0.55%) rotate(-2deg) scale(1.012); }
-  50% { transform: translate(-0.2%, -0.05%) rotate(-0.3deg) scale(1.002); }
-  66% { transform: translate(-0.7%, -0.22%) rotate(-1deg) scale(1.006); }
-  80% { transform: translate(-0.7%, -0.22%) rotate(-1deg) scale(1.006); }
-  92% { transform: translate(-0.1%, -0.02%) rotate(-0.1deg) scale(1.001); }
+  14% { transform: translate(2.1%, 0) rotate(2.5deg) scale(1.008); }
+  30% { transform: translate(-2.1%, 0) rotate(-2.5deg) scale(1.008); }
+  48% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  60% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  74% { transform: translate(1.7%, 0) rotate(2deg) scale(1.006); }
+  90% { transform: translate(-1.7%, 0) rotate(-2deg) scale(1.006); }
 }
 @keyframes betta-encore-tail-flick {
   0%, 100% { transform: rotate(0deg); }
-  18% { transform: rotate(11deg); }
-  34% { transform: rotate(-7deg); }
-  62% { transform: rotate(8deg); }
-  78% { transform: rotate(-4deg); }
+  10% { transform: rotate(15deg); }
+  24% { transform: rotate(-11deg); }
+  45%, 58% { transform: rotate(0deg); }
+  68% { transform: rotate(13deg); }
+  84% { transform: rotate(-9deg); }
 }
 @keyframes betta-encore-fin-flutter {
   0%, 100% { transform: scale(1) rotate(0deg); }
-  35% { transform: scale(1.04) rotate(-2deg); }
-  70% { transform: scale(1.012) rotate(0.8deg); }
+  30% { transform: scale(1.035) rotate(-1deg); }
+  70% { transform: scale(1.015) rotate(0deg); }
 }
 @keyframes betta-show-off-body {
   0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  24% { transform: translate(-1.3%, -0.45%) rotate(-3.2deg) scale(1.014); }
-  42% { transform: translate(-1.3%, -0.45%) rotate(-3.2deg) scale(1.014); }
-  68% { transform: translate(-0.5%, -0.15%) rotate(-1deg) scale(1.005); }
-  80% { transform: translate(-0.5%, -0.15%) rotate(-1deg) scale(1.005); }
-  92% { transform: translate(-0.08%, -0.02%) rotate(-0.1deg) scale(1.001); }
+  28% { transform: translate(-0.8%, -0.2%) rotate(-6deg) scale(1.015); }
+  56% { transform: translate(-0.8%, -0.2%) rotate(-6deg) scale(1.015); }
+  78% { transform: translate(-0.35%, 0) rotate(-2deg) scale(1.005); }
+  90% { transform: translate(0, 0) rotate(0deg) scale(1); }
 }
 @keyframes betta-show-off-tail-flourish {
   0%, 100% { transform: rotate(0deg); }
-  30% { transform: rotate(14deg); }
-  54% { transform: rotate(-9deg); }
-  76% { transform: rotate(5deg); }
+  30% { transform: rotate(17deg); }
+  58% { transform: rotate(-11deg); }
+  78% { transform: rotate(4deg); }
 }
 @keyframes betta-show-off-fin-open {
   0%, 100% { transform: scale(1) rotate(0deg); }
-  32% { transform: scale(1.1) rotate(-3deg); }
-  52% { transform: scale(1.13) rotate(-2deg); }
-  76% { transform: scale(1.05) rotate(-0.5deg); }
+  28% { transform: scale(1.18) rotate(-4deg); }
+  52% { transform: scale(1.22) rotate(-3deg); }
+  76% { transform: scale(1.08) rotate(-0.5deg); }
 }
 @keyframes betta-youre-here-body {
   0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  22% { transform: translate(-1.8%, -0.15%) rotate(-2deg) scale(1.012); }
-  46% { transform: translate(-3.2%, -0.1%) rotate(-0.8deg) scale(1.018); }
-  72% { transform: translate(-3.2%, -0.1%) rotate(-0.8deg) scale(1.018); }
-  90% { transform: translate(-0.45%, -0.02%) rotate(-0.1deg) scale(1.002); }
+  24% { transform: translate(-2.2%, 0) rotate(0deg) scale(1.006); }
+  44% { transform: translate(-4.8%, 0) rotate(0deg) scale(1.012); }
+  78% { transform: translate(-4.8%, 0) rotate(0deg) scale(1.012); }
+  92% { transform: translate(-2.5%, 0) rotate(0deg) scale(1.006); }
   100% { transform: translate(0, 0) rotate(0deg) scale(1); }
 }
 @keyframes betta-youre-here-tail-flourish {
   0%, 100% { transform: rotate(0deg); }
-  42% { transform: rotate(9deg); }
-  68% { transform: rotate(-5deg); }
+  42%, 68% { transform: rotate(0deg); }
 }
 @keyframes betta-youre-here-fin-open {
   0%, 100% { transform: scale(1) rotate(0deg); }
-  38% { transform: scale(1.08) rotate(-2deg); }
-  68% { transform: scale(1.1) rotate(-1deg); }
-  88% { transform: scale(1.03) rotate(-0.3deg); }
+  38% { transform: scale(1.015) rotate(0deg); }
+  68% { transform: scale(1.01) rotate(0deg); }
 }
 @keyframes betta-follow-me-body {
   0% { transform: translate(0, 0) rotate(0deg) scale(1); }
