@@ -49,9 +49,10 @@ const FIN_MOTION = {
   'fin-front-left': { keyframe: 'limb-float-b', duration: '4.6s', delay: '1.1s', origin: '45% 64%' },
 }
 
-function finLayerStyle(layer, jitterSeconds = 0) {
+function finLayerStyle(layer, jitterSeconds = 0, suppressAmbient = false) {
   const motion = FIN_MOTION[layer]
   if (!motion) return {}
+  if (suppressAmbient) return { transformOrigin: motion.origin }
   const totalDelaySeconds = parseFloat(motion.delay) + jitterSeconds
   return {
     transformOrigin: motion.origin,
@@ -988,6 +989,9 @@ export default function BettaRig({
   const level1Animation = celebrationAnimation ?? personalityIdleAnimation
   const activeGreetingAnimation = greetingActive ? greetingAnimation : null
   const specialAnimation = attachmentAnimation ?? actionReactionAnimation ?? activeGreetingAnimation ?? celebrationAnimation ?? level8HabitAnimation
+  const suppressPlayfulBettaAmbient = level1Animation === 'happy-bounce'
+    || specialAnimation === 'playtime-welcome'
+    || specialAnimation === 'encore'
   const effectiveLastPettedAt = optimisticLastPettedAt ?? lastPettedAt
   const lastPettedMs = effectiveLastPettedAt ? new Date(effectiveLastPettedAt).getTime() : Number.NaN
   const isPettingAvailable = !Number.isFinite(lastPettedMs) || (pettingAvailabilityNowMs - lastPettedMs) >= PETTING_COOLDOWN_MS
@@ -1157,14 +1161,7 @@ export default function BettaRig({
 
   function getCelebrationWrapperStyle(layer) {
     if (level1Animation === 'happy-bounce') {
-      if (layer === 'tail') {
-        return {
-          transformOrigin: FIN_MOTION.tail.origin,
-          animation: `betta-happy-bounce-tail-flick ${HAPPY_BOUNCE_TAIL_DURATION_MS}ms ease-in-out 1`,
-        }
-      }
-
-      if (layer === 'fin-top' || layer === 'fin-bottom' || layer === 'fin-side-left' || layer === 'fin-side-right') {
+      if (layer === 'fin-front-right') {
         return {
           transformOrigin: FIN_MOTION[layer].origin,
           animation: `betta-happy-bounce-fin-spread ${HAPPY_BOUNCE_FIN_DURATION_MS}ms ease-out 1`,
@@ -1233,13 +1230,6 @@ export default function BettaRig({
     }
 
     if (specialAnimation === 'playtime-welcome') {
-      if (layer === 'tail') {
-        return {
-          transformOrigin: FIN_MOTION.tail.origin,
-          animation: `betta-playtime-welcome-tail-flick ${PLAYTIME_WELCOME_TAIL_DURATION_MS}ms ease-in-out 1`,
-        }
-      }
-
       if (layer === 'fin-top' || layer === 'fin-bottom' || layer === 'fin-side-left' || layer === 'fin-side-right') {
         return {
           transformOrigin: FIN_MOTION[layer].origin,
@@ -1255,13 +1245,6 @@ export default function BettaRig({
         return {
           transformOrigin: FIN_MOTION.tail.origin,
           animation: `betta-encore-tail-flick ${ENCORE_TAIL_DURATION_MS}ms ease-in-out 1`,
-        }
-      }
-
-      if (layer === 'fin-top' || layer === 'fin-bottom' || layer === 'fin-side-left' || layer === 'fin-side-right') {
-        return {
-          transformOrigin: FIN_MOTION[layer].origin,
-          animation: `betta-encore-fin-flutter ${ENCORE_FIN_DURATION_MS}ms ease-out ${ENCORE_FIN_DELAY_MS}ms 1`,
         }
       }
 
@@ -1647,7 +1630,7 @@ export default function BettaRig({
               src={petAssetPath('betta', layer, colour)}
               alt=""
               className="absolute inset-0 h-full w-full motion-ambient"
-              style={finLayerStyle(layer, idleLoopDelays[layer] ?? 0)}
+              style={finLayerStyle(layer, idleLoopDelays[layer] ?? 0, suppressPlayfulBettaAmbient)}
             />
           </span>
         ))}
