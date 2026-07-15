@@ -31,8 +31,8 @@ function buildTreatAction(pet) {
       label: 'Treat',
       status: 'cooldown',
       iconSrc: TREAT_ICON_SRC,
-      unavailableLabel: 'Treat given today',
-      readyIn: 'Available tomorrow',
+      unavailableLabel: 'Treat',
+      readyIn: 'Available Tomorrow',
     }
   }
 

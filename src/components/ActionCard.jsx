@@ -40,7 +40,12 @@ export default function ActionCard({ actions, onAction, activeKey, pendingKey, m
           const isPending = available && action.key === pendingKey
           const isEnabled = available && !hasPendingAction
           const isActive = available && action.key === activeKey
-          const displayLabel = available ? action.label : (action.unavailableLabel ?? action.label)
+          const displayLabel = action.key === 'treat'
+            ? action.label
+            : available ? action.label : (action.unavailableLabel ?? action.label)
+          const displayReadyIn = action.key === 'treat' && !available
+            ? 'Available Tomorrow'
+            : action.readyIn
           const accessibleLabel = isEnabled
             ? `${action.label}, ready${isActive ? ', in progress' : ''}`
             : isPending
@@ -85,7 +90,7 @@ export default function ActionCard({ actions, onAction, activeKey, pendingKey, m
                 <span>{displayLabel}</span>
               </span>
               <span className="mt-auto text-center text-[10px] leading-tight sm:text-[11px]">
-                {isPending ? 'Saving…' : available ? (action.availableSubtext ?? 'Ready') : action.readyIn}
+                {isPending ? 'Saving…' : available ? (action.availableSubtext ?? 'Ready') : displayReadyIn}
               </span>
             </button>
           )
