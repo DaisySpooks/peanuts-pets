@@ -433,14 +433,15 @@ const BETTA_KEYFRAMES = `
 }
 @keyframes betta-happy-bounce-body {
   0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  28% { transform: translate(0, -2.8%) rotate(0deg) scale(1); }
-  58% { transform: translate(0, -0.35%) rotate(0deg) scale(1); }
+  22% { transform: translate(0, -1.5%) rotate(0deg) scale(1); }
+  40% { transform: translate(0, -4.2%) rotate(0deg) scale(1); }
+  62% { transform: translate(0, -1.2%) rotate(0deg) scale(1); }
   100% { transform: translate(0, 0) rotate(0deg) scale(1); }
 }
 @keyframes betta-happy-bounce-fin-spread {
   0%, 100% { transform: scale(1) rotate(0deg); }
-  38% { transform: scale(1.025) rotate(-0.8deg); }
-  68% { transform: scale(1.01) rotate(0deg); }
+  34% { transform: scale(1.06) rotate(-1.2deg); }
+  58% { transform: scale(1.025) rotate(-0.3deg); }
 }
 @keyframes betta-happy-bounce-tail-flick {
   0%, 100% { transform: rotate(0deg); }
@@ -506,9 +507,12 @@ const BETTA_KEYFRAMES = `
 }
 @keyframes betta-playtime-welcome-body {
   0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  28% { transform: translate(-3.2%, 0) rotate(0deg) scale(1.01); }
-  58% { transform: translate(-3.2%, 0) rotate(0deg) scale(1.01); }
-  78% { transform: translate(-1.1%, 0) rotate(0deg) scale(1.003); }
+  12% { transform: translate(-0.4%, 0) rotate(0deg) scale(1.001); }
+  28% { transform: translate(-1.8%, 0) rotate(0deg) scale(1.006); }
+  44% { transform: translate(-3.2%, 0) rotate(0deg) scale(1.01); }
+  62% { transform: translate(-3.2%, 0) rotate(0deg) scale(1.01); }
+  78% { transform: translate(-2.5%, 0) rotate(0deg) scale(1.008); }
+  90% { transform: translate(-1.1%, 0) rotate(0deg) scale(1.003); }
   100% { transform: translate(0, 0) rotate(0deg) scale(1); }
 }
 @keyframes betta-playtime-welcome-tail-flick {
@@ -523,20 +527,29 @@ const BETTA_KEYFRAMES = `
 }
 @keyframes betta-encore-body {
   0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  14% { transform: translate(2.1%, 0) rotate(2.5deg) scale(1.008); }
-  30% { transform: translate(-2.1%, 0) rotate(-2.5deg) scale(1.008); }
-  48% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  60% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  74% { transform: translate(1.7%, 0) rotate(2deg) scale(1.006); }
-  90% { transform: translate(-1.7%, 0) rotate(-2deg) scale(1.006); }
+  10% { transform: translate(0.6%, 0) rotate(0.7deg) scale(1.002); }
+  20% { transform: translate(2%, 0) rotate(2.3deg) scale(1.008); }
+  30% { transform: translate(0.6%, 0) rotate(0.7deg) scale(1.002); }
+  40% { transform: translate(-1.6%, 0) rotate(-2deg) scale(1.007); }
+  48% { transform: translate(-0.6%, 0) rotate(-0.8deg) scale(1.002); }
+  54%, 60% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  68% { transform: translate(0.5%, 0) rotate(0.6deg) scale(1.002); }
+  78% { transform: translate(1.7%, 0) rotate(2deg) scale(1.006); }
+  88% { transform: translate(0.4%, 0) rotate(0.5deg) scale(1.002); }
+  96% { transform: translate(-1.3%, 0) rotate(-1.6deg) scale(1.005); }
 }
 @keyframes betta-encore-tail-flick {
   0%, 100% { transform: rotate(0deg); }
-  10% { transform: rotate(15deg); }
-  24% { transform: rotate(-11deg); }
-  45%, 58% { transform: rotate(0deg); }
-  68% { transform: rotate(13deg); }
-  84% { transform: rotate(-9deg); }
+  10% { transform: rotate(6deg); }
+  20% { transform: rotate(15deg); }
+  30% { transform: rotate(6deg); }
+  40% { transform: rotate(-11deg); }
+  48% { transform: rotate(-4deg); }
+  54%, 60% { transform: rotate(0deg); }
+  68% { transform: rotate(6deg); }
+  78% { transform: rotate(13deg); }
+  88% { transform: rotate(4deg); }
+  96% { transform: rotate(-9deg); }
 }
 @keyframes betta-encore-fin-flutter {
   0%, 100% { transform: scale(1) rotate(0deg); }
@@ -545,16 +558,22 @@ const BETTA_KEYFRAMES = `
 }
 @keyframes betta-show-off-body {
   0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  28% { transform: translate(-0.8%, -0.2%) rotate(-6deg) scale(1.015); }
-  56% { transform: translate(-0.8%, -0.2%) rotate(-6deg) scale(1.015); }
-  78% { transform: translate(-0.35%, 0) rotate(-2deg) scale(1.005); }
-  90% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  12% { transform: translate(-0.2%, -0.05%) rotate(-1deg) scale(1.002); }
+  26% { transform: translate(-0.6%, -0.15%) rotate(-4.5deg) scale(1.01); }
+  40% { transform: translate(-0.9%, -0.25%) rotate(-6deg) scale(1.015); }
+  58% { transform: translate(-0.9%, -0.25%) rotate(-6deg) scale(1.015); }
+  72% { transform: translate(-0.7%, -0.15%) rotate(-4deg) scale(1.01); }
+  84% { transform: translate(-0.35%, -0.05%) rotate(-2deg) scale(1.004); }
+  94% { transform: translate(-0.08%, 0) rotate(-0.5deg) scale(1.001); }
 }
 @keyframes betta-show-off-tail-flourish {
   0%, 100% { transform: rotate(0deg); }
-  30% { transform: rotate(17deg); }
-  58% { transform: rotate(-11deg); }
-  78% { transform: rotate(4deg); }
+  16% { transform: rotate(5deg); }
+  32% { transform: rotate(17deg); }
+  48% { transform: rotate(4deg); }
+  62% { transform: rotate(-11deg); }
+  76% { transform: rotate(4deg); }
+  90% { transform: rotate(1deg); }
 }
 @keyframes betta-show-off-fin-open {
   0%, 100% { transform: scale(1) rotate(0deg); }
@@ -564,10 +583,12 @@ const BETTA_KEYFRAMES = `
 }
 @keyframes betta-youre-here-body {
   0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  24% { transform: translate(-2.2%, 0) rotate(0deg) scale(1.006); }
-  44% { transform: translate(-4.8%, 0) rotate(0deg) scale(1.012); }
-  78% { transform: translate(-4.8%, 0) rotate(0deg) scale(1.012); }
-  92% { transform: translate(-2.5%, 0) rotate(0deg) scale(1.006); }
+  16% { transform: translate(-1%, 0) rotate(0deg) scale(1.002); }
+  32% { transform: translate(-3.1%, 0) rotate(0deg) scale(1.008); }
+  46% { transform: translate(-5.8%, 0) rotate(0deg) scale(1.014); }
+  78% { transform: translate(-5.8%, 0) rotate(0deg) scale(1.014); }
+  88% { transform: translate(-5.4%, 0) rotate(0deg) scale(1.012); }
+  95% { transform: translate(-3.2%, 0) rotate(0deg) scale(1.008); }
   100% { transform: translate(0, 0) rotate(0deg) scale(1); }
 }
 @keyframes betta-youre-here-tail-flourish {
@@ -576,8 +597,10 @@ const BETTA_KEYFRAMES = `
 }
 @keyframes betta-youre-here-fin-open {
   0%, 100% { transform: scale(1) rotate(0deg); }
-  38% { transform: scale(1.015) rotate(0deg); }
-  68% { transform: scale(1.01) rotate(0deg); }
+  30% { transform: scale(1.025) rotate(-0.4deg); }
+  48% { transform: scale(1.05) rotate(-0.8deg); }
+  78% { transform: scale(1.04) rotate(-0.5deg); }
+  92% { transform: scale(1.015) rotate(0deg); }
 }
 @keyframes betta-follow-me-body {
   0% { transform: translate(0, 0) rotate(0deg) scale(1); }
@@ -1220,7 +1243,7 @@ export default function BettaRig({
       if (layer === 'fin-top' || layer === 'fin-bottom' || layer === 'fin-side-left' || layer === 'fin-side-right') {
         return {
           transformOrigin: FIN_MOTION[layer].origin,
-          animation: `betta-playtime-welcome-fin-flutter ${PLAYTIME_WELCOME_FIN_DURATION_MS}ms ease-out 1`,
+          animation: `betta-playtime-welcome-fin-flutter ${PLAYTIME_WELCOME_FIN_DURATION_MS}ms cubic-bezier(0.22, 0.75, 0.3, 1) 1`,
         }
       }
 
@@ -1543,7 +1566,7 @@ export default function BettaRig({
     : level1Animation === 'hungry-wiggle'
     ? { animation: `betta-hungry-wiggle-body ${HUNGRY_WIGGLE_BODY_DURATION_MS}ms ease-out 1` }
     : specialAnimation === 'playtime-welcome'
-    ? { animation: `betta-playtime-welcome-body ${PLAYTIME_WELCOME_BODY_DURATION_MS}ms ease-out 1` }
+    ? { animation: `betta-playtime-welcome-body ${PLAYTIME_WELCOME_BODY_DURATION_MS}ms cubic-bezier(0.22, 0.75, 0.3, 1) 1` }
     : specialAnimation === 'encore'
     ? { animation: `betta-encore-body ${ENCORE_BODY_DURATION_MS}ms ease-in-out 1` }
     : specialAnimation === 'show-off'
