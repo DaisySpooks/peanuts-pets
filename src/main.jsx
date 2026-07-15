@@ -8,3 +8,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <App />
   </React.StrictMode>,
 )
+
+document.documentElement.dataset.buildVersion = '2026-07-15-1'
