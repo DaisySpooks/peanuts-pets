@@ -33,7 +33,7 @@ export default function ActionCard({ actions, onAction, activeKey, pendingKey, m
         </>
       ) : null}
       <div className="mb-3 h-px bg-gradient-to-r from-transparent via-[#c9a44c]/60 to-transparent" />
-      <div className="grid grid-cols-4 gap-2 sm:gap-3">
+      <div className="grid grid-cols-4 auto-rows-[5.75rem] gap-2 sm:auto-rows-[6.5rem] sm:gap-3">
         {actions.map((action) => {
           const available = action.status === 'available'
           const hasPendingAction = pendingKey !== null
@@ -59,7 +59,7 @@ export default function ActionCard({ actions, onAction, activeKey, pendingKey, m
                   ? `flex flex-col items-center gap-1 rounded-xl border-2 border-[#7a4f22] bg-gradient-to-b from-[#f9e4b4] via-[#e3b968] to-[#a97535] px-2 py-3 text-[#3b2410] shadow-[0_3px_0_rgba(90,52,14,0.65),0_12px_20px_-6px_rgba(40,22,6,0.62),inset_0_2px_0_rgba(255,250,232,0.75),inset_0_-5px_7px_rgba(101,60,17,0.55)] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:brightness-105 hover:shadow-[0_4px_0_rgba(90,52,14,0.65),0_14px_24px_-6px_rgba(40,22,6,0.66),inset_0_2px_0_rgba(255,250,232,0.8),inset_0_-5px_7px_rgba(101,60,17,0.55)] active:translate-y-[3px] active:shadow-[0_0_0_rgba(90,52,14,0.65),inset_0_3px_6px_rgba(60,35,10,0.55)] active:brightness-95 sm:px-3 sm:py-3.5 ${
                       isActive ? 'ring-2 ring-[#f5d38f]/70 ring-offset-2 ring-offset-[#2c2014] brightness-105' : ''
                     }`
-                  : 'flex cursor-not-allowed flex-col items-center gap-1 rounded-xl border border-black/50 bg-[#1a130b] px-2 py-3 text-[#a8927a]/50 opacity-80 shadow-[inset_0_2px_5px_rgba(0,0,0,0.8)] sm:px-3 sm:py-3.5'
+                  : 'flex h-full cursor-not-allowed flex-col items-center gap-1 rounded-xl border border-black/50 bg-[#1a130b] px-2 py-3 text-[#a8927a]/50 opacity-80 shadow-[inset_0_2px_5px_rgba(0,0,0,0.8)] sm:px-3 sm:py-3.5'
               }
             >
               <span className="flex flex-col items-center gap-1 text-center text-xs font-bold leading-tight sm:text-sm">
