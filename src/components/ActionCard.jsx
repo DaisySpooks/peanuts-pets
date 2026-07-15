@@ -33,7 +33,7 @@ export default function ActionCard({ actions, onAction, activeKey, pendingKey, m
         </>
       ) : null}
       <div className="mb-3 h-px bg-gradient-to-r from-transparent via-[#c9a44c]/60 to-transparent" />
-      <div className="grid grid-cols-4 auto-rows-[5.75rem] gap-2 sm:auto-rows-[6.5rem] sm:gap-3">
+      <div className="grid grid-cols-4 auto-rows-[5.75rem] gap-2 sm:auto-rows-[6rem] sm:gap-3 sm:[&>button]:!py-2.5">
         {actions.map((action) => {
           const available = action.status === 'available'
           const hasPendingAction = pendingKey !== null
