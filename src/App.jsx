@@ -15,6 +15,10 @@ import { defaultStats } from './mockData.js'
 import { buildPetActions } from './petActions.js'
 import { dismissPersonalityUnlockCelebration, getPersonalityUnlockCelebration } from './personalityUnlockCelebration.js'
 import { advancePersonalityUnlockQueue, buildPersonalityUnlockQueue } from './personalityUnlockQueue.js'
+import {
+  dismissAdminPersonalityCelebrationPreview,
+  openAdminPersonalityCelebrationPreview,
+} from './adminPersonalityPreview.js'
 import { isAudioEnabled, setupAudioLifecycle, toggleAudio } from './lib/audio.js'
 
 // Fixed top-right desktop controls shown across every authenticated screen
@@ -114,6 +118,7 @@ export default function App() {
   const [pendingFirstAdoptionPet, setPendingFirstAdoptionPet] = useState(null)
   const [personalityUnlockCelebration, setPersonalityUnlockCelebration] = useState(null)
   const [personalityUnlockQueue, setPersonalityUnlockQueue] = useState([])
+  const [adminPersonalityUnlockPreview, setAdminPersonalityUnlockPreview] = useState(null)
   const [personalityPreviewRuntimeAnimation, setPersonalityPreviewRuntimeAnimation] = useState(null)
 
   const hasAccess = accessGranted && !isCheckingAccess && !viewingAccessScreen
@@ -173,37 +178,48 @@ export default function App() {
 
   if (viewingAdminScreen && hasAdminAccess) {
     return (
-      <AdminScreen
-        currentDiscordUserId={session?.user?.id || null}
-        myPet={pet && !petLoadError ? pet : null}
-        onMyPetChange={(nextPet) => {
-          setPet(nextPet)
-          setPetLoadError(null)
-        }}
-        onMyPetDelete={() => {
-          setPet(null)
-          setPetLoadError(null)
-        }}
-        onBack={() => setViewingAdminScreen(false)}
-        onPreviewCelebration={(preview) => {
-          setViewingAdminScreen(false)
-          setPersonalityPreviewRuntimeAnimation(null)
-          setPersonalityUnlockQueue([])
-          setPersonalityUnlockCelebration(preview)
-        }}
-        onPreviewRuntime={({ token }) => {
-          setViewingAdminScreen(false)
-          setPersonalityUnlockCelebration(null)
-          setPersonalityUnlockQueue([])
-          setPersonalityPreviewRuntimeAnimation(token || null)
-        }}
-        onPreviewQueue={(queue) => {
-          setViewingAdminScreen(false)
-          setPersonalityPreviewRuntimeAnimation(null)
-          setPersonalityUnlockCelebration(queue[0] ?? null)
-          setPersonalityUnlockQueue(queue.slice(1))
-        }}
-      />
+      <>
+        <AdminScreen
+          currentDiscordUserId={session?.user?.id || null}
+          myPet={pet && !petLoadError ? pet : null}
+          onMyPetChange={(nextPet) => {
+            setPet(nextPet)
+            setPetLoadError(null)
+          }}
+          onMyPetDelete={() => {
+            setPet(null)
+            setPetLoadError(null)
+          }}
+          onBack={() => setViewingAdminScreen(false)}
+          onPreviewCelebration={(preview) => {
+            openAdminPersonalityCelebrationPreview({
+              preview,
+              setPreview: setAdminPersonalityUnlockPreview,
+              setRuntimeAnimation: setPersonalityPreviewRuntimeAnimation,
+              setQueue: setPersonalityUnlockQueue,
+            })
+          }}
+          onPreviewRuntime={({ token }) => {
+            setViewingAdminScreen(false)
+            setPersonalityUnlockCelebration(null)
+            setPersonalityUnlockQueue([])
+            setPersonalityPreviewRuntimeAnimation(token || null)
+          }}
+          onPreviewQueue={(queue) => {
+            setViewingAdminScreen(false)
+            setPersonalityPreviewRuntimeAnimation(null)
+            setPersonalityUnlockCelebration(queue[0] ?? null)
+            setPersonalityUnlockQueue(queue.slice(1))
+          }}
+        />
+        {adminPersonalityUnlockPreview ? (
+          <PersonalityUnlockCelebration
+            pet={adminPersonalityUnlockPreview.pet}
+            unlock={adminPersonalityUnlockPreview.unlock}
+            onContinue={() => dismissAdminPersonalityCelebrationPreview(setAdminPersonalityUnlockPreview)}
+          />
+        ) : null}
+      </>
     )
   }
 
