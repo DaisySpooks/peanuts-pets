@@ -58,6 +58,7 @@ function createDeps(overrides = {}) {
   return {
     getPetByDiscordUserId: async () => null,
     getLatestPetPurchaseByDiscordUserId: async () => null,
+    listEarnedPersonalityUnlockKeys: async () => [],
     supabaseUrl: 'https://supabase.example',
     serviceRoleKey: 'service-role-key',
     logger: { error() {} },
@@ -113,6 +114,36 @@ test('PAID pet returns normally', async () => {
 
   assert.equal(res.statusCode, 200)
   assert.equal(res.body.pet.petName, 'Mochi')
+})
+
+test('pet read returns earned personality unlock keys', async () => {
+  const { getMyPetRouteHandler } = await import('./index.js')
+  const handler = getMyPetRouteHandler(createDeps({
+    getPetByDiscordUserId: async () => createPet(),
+    getLatestPetPurchaseByDiscordUserId: async () => createPurchase({ status: 'PAID' }),
+    listEarnedPersonalityUnlockKeys: async () => ['playful_happy_bounce', 'playful_playtime_welcome'],
+  }))
+  const res = createMockRes()
+
+  await handler({ discordUserId: 'user-1' }, res)
+
+  assert.equal(res.statusCode, 200)
+  assert.deepEqual(res.body.pet.earnedPersonalityUnlockKeys, ['playful_happy_bounce', 'playful_playtime_welcome'])
+})
+
+test('pet read returns an empty earned personality unlock key list when no records exist', async () => {
+  const { getMyPetRouteHandler } = await import('./index.js')
+  const handler = getMyPetRouteHandler(createDeps({
+    getPetByDiscordUserId: async () => createPet(),
+    getLatestPetPurchaseByDiscordUserId: async () => createPurchase({ status: 'PAID' }),
+    listEarnedPersonalityUnlockKeys: async () => [],
+  }))
+  const res = createMockRes()
+
+  await handler({ discordUserId: 'user-1' }, res)
+
+  assert.equal(res.statusCode, 200)
+  assert.deepEqual(res.body.pet.earnedPersonalityUnlockKeys, [])
 })
 
 test('PAYMENT_FAILED pet is blocked', async () => {

@@ -27,6 +27,8 @@ import {
   validatePetName,
   validatePetType,
 } from './pets.js'
+import { listEarnedPersonalityUnlockKeys } from './petPersonalityUnlockRecords.js'
+import { catchUpPersonalityUnlocks } from './petPersonalityUnlockCatchUp.js'
 import { getNutReserveBalance, spendNutReservePoints } from './nutReserve.js'
 import { getGreetingsForTemperament, getThoughtsForTemperament } from './petThoughts.js'
 import {
@@ -365,6 +367,9 @@ function sendPetPaymentFailed(res, error = null) {
 export function getMyPetRouteHandler(deps = {}) {
   const getPet = deps.getPetByDiscordUserId ?? getPetByDiscordUserId
   const getLatestPurchase = deps.getLatestPetPurchaseByDiscordUserId ?? getLatestPetPurchaseByDiscordUserId
+  const getEarnedPersonalityUnlockKeys =
+    deps.listEarnedPersonalityUnlockKeys ?? listEarnedPersonalityUnlockKeys
+  const catchUpUnlocks = deps.catchUpPersonalityUnlocks ?? catchUpPersonalityUnlocks
   const supabaseUrl = deps.supabaseUrl ?? SUPABASE_URL
   const serviceRoleKey = deps.serviceRoleKey ?? SUPABASE_SERVICE_ROLE_KEY
   const logger = deps.logger ?? console
@@ -392,7 +397,28 @@ export function getMyPetRouteHandler(deps = {}) {
       }
 
       if (!latestPurchase || latestPurchase.status === 'PAID') {
-        res.json({ pet: toDisplayPet(pet) })
+        const earnedPersonalityUnlockKeys = await getEarnedPersonalityUnlockKeys({
+          supabaseUrl,
+          serviceRoleKey,
+          discordUserId: req.discordUserId,
+        })
+        const catchUp = await catchUpUnlocks({
+          pet,
+          earnedPersonalityUnlockKeys,
+          supabaseUrl,
+          serviceRoleKey,
+          discordUserId: req.discordUserId,
+        })
+        const response = {
+          pet: toDisplayPet({
+            ...pet,
+            earnedPersonalityUnlockKeys: catchUp.earnedPersonalityUnlockKeys,
+          }),
+        }
+        if (catchUp.newlyGrantedPersonalities.length > 0) {
+          response.newlyGrantedPersonalities = catchUp.newlyGrantedPersonalities
+        }
+        res.json(response)
         return
       }
 

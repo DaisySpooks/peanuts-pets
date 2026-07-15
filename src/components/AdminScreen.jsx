@@ -3,6 +3,14 @@ import { deleteMyPetAdmin, getAdminPets, getAdminSummary, resetMyPetCooldowns, u
 import { PET_OPTIONS } from '../petOptions.js'
 import { ADMIN_SELECTABLE_COLOURS } from '../petColourOptions.js'
 import PetPreview from './PetPreview.jsx'
+import {
+  PERSONALITY_PREVIEW_LEVELS,
+  PERSONALITY_PREVIEW_TEMPERAMENTS,
+  buildPersonalityPreviewQueue,
+  createPersonalityPreviewActions,
+  resolvePersonalityPreviewRuntimeToken,
+  resolvePersonalityPreviewUnlock,
+} from '../personalityPreview.js'
 
 const MAX_NAME_LENGTH = 20
 
@@ -62,7 +70,16 @@ function updateSummaryFromPet(existingSummary, previousPet, nextPet, discordUser
   }
 }
 
-export default function AdminScreen({ currentDiscordUserId, myPet, onMyPetChange, onMyPetDelete, onBack }) {
+export default function AdminScreen({
+  currentDiscordUserId,
+  myPet,
+  onMyPetChange,
+  onMyPetDelete,
+  onBack,
+  onPreviewCelebration,
+  onPreviewRuntime,
+  onPreviewQueue,
+}) {
   const [summary, setSummary] = useState(null)
   const [pets, setPets] = useState([])
   const [petsFilter, setPetsFilter] = useState('')
@@ -75,6 +92,8 @@ export default function AdminScreen({ currentDiscordUserId, myPet, onMyPetChange
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshingPets, setIsRefreshingPets] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [previewTemperament, setPreviewTemperament] = useState('playful')
+  const [previewLevel, setPreviewLevel] = useState(1)
 
   useEffect(() => {
     setPetType(myPet?.petType || PET_OPTIONS[0].key)
@@ -93,6 +112,35 @@ export default function AdminScreen({ currentDiscordUserId, myPet, onMyPetChange
         setPets((currentPets) => upsertPetInList(currentPets, updatedPet, currentDiscordUserId))
       }
     }
+  }
+
+  const previewActions = createPersonalityPreviewActions({
+    onCelebration: onPreviewCelebration,
+    onRuntime: onPreviewRuntime,
+    onQueue: onPreviewQueue,
+  })
+
+  const previewUnlock = resolvePersonalityPreviewUnlock(previewTemperament, previewLevel)
+  const previewRuntimeToken = resolvePersonalityPreviewRuntimeToken({
+    species: myPet?.petType,
+    temperament: previewTemperament,
+    level: previewLevel,
+  })
+
+  function handlePreviewCelebration() {
+    if (!myPet || !previewUnlock) return
+    previewActions.previewCelebration({ pet: myPet, unlock: previewUnlock })
+  }
+
+  function handlePreviewRuntime() {
+    if (!myPet || !previewUnlock || !previewRuntimeToken) return
+    previewActions.previewRuntime({ token: previewRuntimeToken })
+  }
+
+  function handlePreviewQueue() {
+    if (!myPet) return
+    const queue = buildPersonalityPreviewQueue({ pet: myPet, temperament: previewTemperament, level: previewLevel })
+    if (queue.length > 0) previewActions.previewQueue(queue)
   }
 
   async function refreshSummary() {
@@ -397,6 +445,56 @@ export default function AdminScreen({ currentDiscordUserId, myPet, onMyPetChange
               <SectionCard title="Test My Pet" description="Changes only affect the currently signed-in admin account.">
                 {myPet ? (
                   <>
+                    <div className="mb-5 rounded-2xl border border-gold/25 bg-gold/[0.06] p-4">
+                      <p className="text-sm font-semibold text-cream">Personality Testing</p>
+                      <p className="mt-1 text-xs text-cream/55">
+                        Manual previews only. These controls are non-persistent and use the loaded pet species ({myPet.petType}).
+                      </p>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <label className="text-xs font-medium uppercase tracking-wide text-gold/70">
+                          Temperament
+                          <select
+                            value={previewTemperament}
+                            onChange={(event) => setPreviewTemperament(event.target.value)}
+                            className="mt-1.5 w-full rounded-xl border border-cream/15 bg-cream/5 px-3.5 py-2.5 text-sm capitalize text-cream focus:outline-none focus:ring-2 focus:ring-gold/50"
+                          >
+                            {PERSONALITY_PREVIEW_TEMPERAMENTS.map((temperament) => (
+                              <option key={temperament} value={temperament} className="bg-[#171513]">
+                                {temperament}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="text-xs font-medium uppercase tracking-wide text-gold/70">
+                          Milestone
+                          <select
+                            value={previewLevel}
+                            onChange={(event) => setPreviewLevel(Number(event.target.value))}
+                            className="mt-1.5 w-full rounded-xl border border-cream/15 bg-cream/5 px-3.5 py-2.5 text-sm text-cream focus:outline-none focus:ring-2 focus:ring-gold/50"
+                          >
+                            {PERSONALITY_PREVIEW_LEVELS.map((level) => (
+                              <option key={level} value={level} className="bg-[#171513]">
+                                Level {level}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <p className="mt-3 text-xs text-cream/50">
+                        {previewUnlock ? `${previewUnlock.displayName} — ${previewRuntimeToken || 'no animation for this species'}` : 'Unsupported selection.'}
+                      </p>
+                      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                        <button type="button" disabled={!previewUnlock} onClick={handlePreviewCelebration} className="rounded-xl border border-cream/15 bg-cream/[0.03] px-3 py-2.5 text-xs font-semibold text-cream transition hover:border-gold/40 hover:bg-cream/[0.06] disabled:cursor-not-allowed disabled:opacity-40">
+                          Preview Celebration (non-persistent)
+                        </button>
+                        <button type="button" disabled={!previewRuntimeToken} onClick={handlePreviewRuntime} className="rounded-xl border border-cream/15 bg-cream/[0.03] px-3 py-2.5 text-xs font-semibold text-cream transition hover:border-gold/40 hover:bg-cream/[0.06] disabled:cursor-not-allowed disabled:opacity-40">
+                          Preview Runtime Behaviour (non-persistent)
+                        </button>
+                        <button type="button" disabled={!previewUnlock} onClick={handlePreviewQueue} className="rounded-xl border border-cream/15 bg-cream/[0.03] px-3 py-2.5 text-xs font-semibold text-cream transition hover:border-gold/40 hover:bg-cream/[0.06] disabled:cursor-not-allowed disabled:opacity-40">
+                          Preview Catch-Up Queue (non-persistent)
+                        </button>
+                      </div>
+                    </div>
                     <form onSubmit={handleSaveIdentity}>
                       <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gold/70" htmlFor="admin-pet-type">
                         Pet type

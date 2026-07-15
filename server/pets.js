@@ -13,6 +13,8 @@ import {
   getStatDecayMultiplier,
 } from './petTemperamentEffects.js'
 import { getAffectionLevelInfo } from './petAffectionLevels.js'
+import { detectNewlyUnlockedPersonality } from './petPersonalityUnlocks.js'
+import { recordPersonalityUnlock } from './petPersonalityUnlockRecords.js'
 
 const PET_TYPES = ['axolotl', 'betta', 'turtle']
 const MAX_PET_NAME_LENGTH = 20
@@ -522,7 +524,29 @@ export async function applyPettingInteraction({ supabaseUrl, serviceRoleKey, dis
     throw error
   }
 
-  return toPet(rows[0])
+  const pet = toPet(rows[0])
+  // See petPersonalityUnlocks.js for the milestone table this checks
+  // against, and petPersonalityUnlockRecords.js for how the earned unlock
+  // is persisted — insert is idempotent, so a retried request can't record
+  // the same unlock twice. Not yet surfaced to the client (no UI/celebration
+  // yet).
+  const newlyUnlockedPersonality = detectNewlyUnlockedPersonality({
+    temperament,
+    previousLifetimeAffection: existing.lifetimeAffection,
+    nextLifetimeAffection: pet.lifetimeAffection,
+  })
+
+  if (newlyUnlockedPersonality) {
+    await recordPersonalityUnlock({
+      supabaseUrl,
+      serviceRoleKey,
+      discordUserId,
+      unlockKey: newlyUnlockedPersonality.unlockKey,
+      temperament,
+    })
+  }
+
+  return { ...pet, newlyUnlockedPersonality }
 }
 
 // UTC calendar-day key (YYYY-MM-DD), used so "once per day" resets at the
@@ -567,7 +591,7 @@ export async function applyPetTreat({ supabaseUrl, serviceRoleKey, discordUserId
   }
 
   const now = new Date().toISOString()
-  return patchPetByDiscordUserId({
+  const pet = await patchPetByDiscordUserId({
     supabaseUrl,
     serviceRoleKey,
     discordUserId,
@@ -578,6 +602,30 @@ export async function applyPetTreat({ supabaseUrl, serviceRoleKey, discordUserId
       updated_at: now,
     },
   })
+  if (!pet) return pet
+
+  // See petPersonalityUnlocks.js for the milestone table this checks
+  // against, and petPersonalityUnlockRecords.js for how the earned unlock
+  // is persisted — insert is idempotent, so a retried request can't record
+  // the same unlock twice. Not yet surfaced to the client (no UI/celebration
+  // yet).
+  const newlyUnlockedPersonality = detectNewlyUnlockedPersonality({
+    temperament: existing.temperament,
+    previousLifetimeAffection: existing.lifetimeAffection,
+    nextLifetimeAffection: pet.lifetimeAffection,
+  })
+
+  if (newlyUnlockedPersonality) {
+    await recordPersonalityUnlock({
+      supabaseUrl,
+      serviceRoleKey,
+      discordUserId,
+      unlockKey: newlyUnlockedPersonality.unlockKey,
+      temperament: existing.temperament,
+    })
+  }
+
+  return { ...pet, newlyUnlockedPersonality }
 }
 
 export async function getPetSummary({ supabaseUrl, serviceRoleKey, recentLimit = 10 }) {

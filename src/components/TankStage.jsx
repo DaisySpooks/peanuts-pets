@@ -67,7 +67,31 @@ const CLEAN_FEEDBACK_KEYFRAMES = `
 
 // The tank "frame": glass, water, reflections, layout container.
 // Composes decor/effects/pet but never reaches into PetRenderer's internals.
-export default function TankStage({ species, colour, name, lastPettedAt, expression, mood, stats, isEating, isFeeding, feedTrigger, isCleaning, isPlaying, onPetPersist, thoughtText, thoughtVisible }) {
+export default function TankStage({
+  species,
+  colour,
+  name,
+  lastPettedAt,
+  earnedPersonalityUnlockKeys,
+  expression,
+  mood,
+  stats,
+  isEating,
+  isFeeding,
+  feedTrigger,
+  isCleaning,
+  isPlaying,
+  onPetPersist,
+  thoughtText,
+  thoughtVisible,
+  greetingActive = false,
+  greetingAnimation = null,
+  actionReactionAnimation = null,
+  attachmentAnimation = null,
+  onAttachmentAnimationComplete,
+  personalityUnlockCelebrationActive = false,
+  celebrationAnimation,
+}) {
   // Always the real stat-derived value — never forced to 0 during the Clean
   // action. The existing transition-opacity below animates smoothly from
   // whatever the overlay's current opacity is to this new target the moment
@@ -109,6 +133,7 @@ export default function TankStage({ species, colour, name, lastPettedAt, express
         colour={colour}
         name={name}
         lastPettedAt={lastPettedAt}
+        earnedPersonalityUnlockKeys={earnedPersonalityUnlockKeys}
         expression={expression}
         mood={mood}
         stats={stats}
@@ -118,6 +143,13 @@ export default function TankStage({ species, colour, name, lastPettedAt, express
         isCleaning={isCleaning}
         isPlaying={isPlaying}
         onPetPersist={onPetPersist}
+        greetingActive={greetingActive}
+        greetingAnimation={greetingAnimation}
+        actionReactionAnimation={actionReactionAnimation}
+        attachmentAnimation={attachmentAnimation}
+        onAttachmentAnimationComplete={onAttachmentAnimationComplete}
+        personalityUnlockCelebrationActive={personalityUnlockCelebrationActive}
+        celebrationAnimation={celebrationAnimation}
       />
       {/* dirty-water overlay: same full-canvas object-contain box as water.png/tank.png
           so it stays pixel-aligned with them on every breakpoint. Sits above the pet

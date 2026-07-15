@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import { cumulativeAffectionForLevel } from './petAffectionLevels.js'
 import {
   applyPetCareAction,
   applyPetTreat,
@@ -287,6 +288,356 @@ test('non-curious petting grants the normal +1 affection', async () => {
   })
 
   assert.equal(result.affection, 6)
+})
+
+// --- Personality unlock persistence ---
+
+test('a pet gaining its first-ever affection persists the Level 1 personality unlock', async () => {
+  const unlockInserts = []
+  global.fetch = async (input, init) => {
+    const url = new URL(input)
+    if (url.pathname === '/rest/v1/pet_personality_unlocks') {
+      unlockInserts.push(JSON.parse(init.body))
+      return createJsonResponse([{
+        unlock_id: 'unlock-1',
+        discord_user_id: 'user-1',
+        unlock_key: 'playful_happy_bounce',
+        temperament: 'playful',
+        earned_at: '2026-07-14T12:00:00.000Z',
+      }])
+    }
+    if (!init || init.method === undefined) {
+      // lifetime_affection omitted -> toPet defaults it to 0 (never petted before).
+      return createJsonResponse([createRow({ temperament: 'playful', affection: 0 })])
+    }
+    const payload = JSON.parse(init.body)
+    return createJsonResponse([createRow({
+      temperament: 'playful',
+      affection: payload.affection,
+      lifetime_affection: payload.lifetime_affection,
+    })])
+  }
+
+  const result = await applyPettingInteraction({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    discordUserId: 'user-1',
+  })
+
+  assert.equal(result.newlyUnlockedPersonality?.unlockKey, 'playful_happy_bounce')
+  assert.equal(unlockInserts.length, 1)
+  assert.deepEqual(unlockInserts[0], [{
+    discord_user_id: 'user-1',
+    unlock_key: 'playful_happy_bounce',
+    temperament: 'playful',
+  }])
+})
+
+test('crossing from below Level 3 into Level 3 persists the correct unlock once and returns it', async () => {
+  const level3At = cumulativeAffectionForLevel(3)
+  const unlockInserts = []
+  global.fetch = async (input, init) => {
+    const url = new URL(input)
+    if (url.pathname === '/rest/v1/pet_personality_unlocks') {
+      unlockInserts.push(JSON.parse(init.body))
+      return createJsonResponse([{
+        unlock_id: 'unlock-l3',
+        discord_user_id: 'user-1',
+        unlock_key: 'foodie_snack_check',
+        temperament: 'foodie',
+        earned_at: '2026-07-14T12:00:00.000Z',
+      }])
+    }
+    if (!init || init.method === undefined) {
+      return createJsonResponse([createRow({
+        temperament: 'foodie',
+        affection: level3At - 1,
+        lifetime_affection: level3At - 1,
+      })])
+    }
+    const payload = JSON.parse(init.body)
+    return createJsonResponse([createRow({
+      temperament: 'foodie',
+      affection: payload.affection,
+      lifetime_affection: payload.lifetime_affection,
+    })])
+  }
+
+  const result = await applyPetTreat({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    discordUserId: 'user-1',
+  })
+
+  assert.equal(result.newlyUnlockedPersonality?.unlockKey, 'foodie_snack_check')
+  assert.equal(unlockInserts.length, 1)
+  assert.deepEqual(unlockInserts[0], [{
+    discord_user_id: 'user-1',
+    unlock_key: 'foodie_snack_check',
+    temperament: 'foodie',
+  }])
+})
+
+test('crossing from below Level 5 into Level 5 persists the correct unlock once and returns it', async () => {
+  const level5At = cumulativeAffectionForLevel(5)
+  const unlockInserts = []
+  global.fetch = async (input, init) => {
+    const url = new URL(input)
+    if (url.pathname === '/rest/v1/pet_personality_unlocks') {
+      unlockInserts.push(JSON.parse(init.body))
+      return createJsonResponse([{
+        unlock_id: 'unlock-l5',
+        discord_user_id: 'user-1',
+        unlock_key: 'sleepy_cozy_time',
+        temperament: 'sleepy',
+        earned_at: '2026-07-14T12:00:00.000Z',
+      }])
+    }
+    if (!init || init.method === undefined) {
+      return createJsonResponse([createRow({
+        temperament: 'sleepy',
+        affection: level5At - 1,
+        lifetime_affection: level5At - 1,
+      })])
+    }
+    const payload = JSON.parse(init.body)
+    return createJsonResponse([createRow({
+      temperament: 'sleepy',
+      affection: payload.affection,
+      lifetime_affection: payload.lifetime_affection,
+    })])
+  }
+
+  const result = await applyPetTreat({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    discordUserId: 'user-1',
+  })
+
+  assert.equal(result.newlyUnlockedPersonality?.unlockKey, 'sleepy_cozy_time')
+  assert.equal(unlockInserts.length, 1)
+  assert.deepEqual(unlockInserts[0], [{
+    discord_user_id: 'user-1',
+    unlock_key: 'sleepy_cozy_time',
+    temperament: 'sleepy',
+  }])
+})
+
+test('petting that stays within Level 1 never calls the personality-unlocks endpoint', async () => {
+  const unlockInserts = []
+  global.fetch = async (input, init) => {
+    const url = new URL(input)
+    if (url.pathname === '/rest/v1/pet_personality_unlocks') {
+      unlockInserts.push(JSON.parse(init.body))
+      return createJsonResponse([])
+    }
+    if (!init || init.method === undefined) {
+      return createJsonResponse([createRow({ temperament: 'playful', affection: 5, lifetime_affection: 5 })])
+    }
+    const payload = JSON.parse(init.body)
+    return createJsonResponse([createRow({
+      temperament: 'playful',
+      affection: payload.affection,
+      lifetime_affection: payload.lifetime_affection,
+    })])
+  }
+
+  const result = await applyPettingInteraction({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    discordUserId: 'user-1',
+  })
+
+  assert.equal(result.newlyUnlockedPersonality, null)
+  assert.equal(unlockInserts.length, 0)
+})
+
+test('remaining within the same level does not create a Level 3 or Level 5 unlock', async () => {
+  const level3At = cumulativeAffectionForLevel(3)
+  const unlockInserts = []
+  global.fetch = async (input, init) => {
+    const url = new URL(input)
+    if (url.pathname === '/rest/v1/pet_personality_unlocks') {
+      unlockInserts.push(JSON.parse(init.body))
+      return createJsonResponse([])
+    }
+    if (!init || init.method === undefined) {
+      return createJsonResponse([createRow({
+        temperament: 'gentle',
+        affection: level3At,
+        lifetime_affection: level3At,
+      })])
+    }
+    const payload = JSON.parse(init.body)
+    return createJsonResponse([createRow({
+      temperament: 'gentle',
+      affection: payload.affection,
+      lifetime_affection: payload.lifetime_affection,
+    })])
+  }
+
+  const result = await applyPetTreat({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    discordUserId: 'user-1',
+  })
+
+  assert.equal(result.newlyUnlockedPersonality, null)
+  assert.equal(unlockInserts.length, 0)
+})
+
+test('a retried unlock insert for the same pet is ignored as a duplicate, not recorded twice', async () => {
+  const unlockInserts = []
+  let unlockCallCount = 0
+  global.fetch = async (input, init) => {
+    const url = new URL(input)
+    if (url.pathname === '/rest/v1/pet_personality_unlocks') {
+      unlockCallCount += 1
+      unlockInserts.push(JSON.parse(init.body))
+      // First call: the row is newly inserted. Second call (the retry):
+      // the unique index on (discord_user_id, unlock_key) means Postgres
+      // silently ignores the duplicate and PostgREST returns an empty array.
+      if (unlockCallCount === 1) {
+        return createJsonResponse([{
+          unlock_id: 'unlock-1',
+          discord_user_id: 'user-1',
+          unlock_key: 'playful_happy_bounce',
+          temperament: 'playful',
+          earned_at: '2026-07-14T12:00:00.000Z',
+        }])
+      }
+      return createJsonResponse([])
+    }
+    if (!init || init.method === undefined) {
+      return createJsonResponse([createRow({ temperament: 'playful', affection: 0 })])
+    }
+    const payload = JSON.parse(init.body)
+    return createJsonResponse([createRow({
+      temperament: 'playful',
+      affection: payload.affection,
+      lifetime_affection: payload.lifetime_affection,
+    })])
+  }
+
+  const first = await applyPettingInteraction({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    discordUserId: 'user-1',
+  })
+  const retried = await applyPettingInteraction({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    discordUserId: 'user-1',
+  })
+
+  assert.equal(first.newlyUnlockedPersonality?.unlockKey, 'playful_happy_bounce')
+  assert.equal(retried.newlyUnlockedPersonality?.unlockKey, 'playful_happy_bounce')
+  assert.equal(unlockInserts.length, 2)
+  assert.deepEqual(unlockInserts[0], unlockInserts[1])
+})
+
+test('a retried Level 3 unlock insert remains idempotent for the same unlock key', async () => {
+  const level3At = cumulativeAffectionForLevel(3)
+  const unlockInserts = []
+  let unlockCallCount = 0
+  global.fetch = async (input, init) => {
+    const url = new URL(input)
+    if (url.pathname === '/rest/v1/pet_personality_unlocks') {
+      unlockCallCount += 1
+      unlockInserts.push(JSON.parse(init.body))
+      if (unlockCallCount === 1) {
+        return createJsonResponse([{
+          unlock_id: 'unlock-l3',
+          discord_user_id: 'user-1',
+          unlock_key: 'foodie_snack_check',
+          temperament: 'foodie',
+          earned_at: '2026-07-14T12:00:00.000Z',
+        }])
+      }
+      return createJsonResponse([])
+    }
+    if (!init || init.method === undefined) {
+      return createJsonResponse([createRow({
+        temperament: 'foodie',
+        affection: level3At - 1,
+        lifetime_affection: level3At - 1,
+      })])
+    }
+    const payload = JSON.parse(init.body)
+    return createJsonResponse([createRow({
+      temperament: 'foodie',
+      affection: payload.affection,
+      lifetime_affection: payload.lifetime_affection,
+    })])
+  }
+
+  const first = await applyPetTreat({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    discordUserId: 'user-1',
+  })
+  const retried = await applyPetTreat({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    discordUserId: 'user-1',
+  })
+
+  assert.equal(first.newlyUnlockedPersonality?.unlockKey, 'foodie_snack_check')
+  assert.equal(retried.newlyUnlockedPersonality?.unlockKey, 'foodie_snack_check')
+  assert.equal(unlockInserts.length, 2)
+  assert.deepEqual(unlockInserts[0], unlockInserts[1])
+})
+
+test('a retried Level 5 unlock insert remains idempotent for the same unlock key', async () => {
+  const level5At = cumulativeAffectionForLevel(5)
+  const unlockInserts = []
+  let unlockCallCount = 0
+  global.fetch = async (input, init) => {
+    const url = new URL(input)
+    if (url.pathname === '/rest/v1/pet_personality_unlocks') {
+      unlockCallCount += 1
+      unlockInserts.push(JSON.parse(init.body))
+      if (unlockCallCount === 1) {
+        return createJsonResponse([{
+          unlock_id: 'unlock-l5',
+          discord_user_id: 'user-1',
+          unlock_key: 'sleepy_cozy_time',
+          temperament: 'sleepy',
+          earned_at: '2026-07-14T12:00:00.000Z',
+        }])
+      }
+      return createJsonResponse([])
+    }
+    if (!init || init.method === undefined) {
+      return createJsonResponse([createRow({
+        temperament: 'sleepy',
+        affection: level5At - 1,
+        lifetime_affection: level5At - 1,
+      })])
+    }
+    const payload = JSON.parse(init.body)
+    return createJsonResponse([createRow({
+      temperament: 'sleepy',
+      affection: payload.affection,
+      lifetime_affection: payload.lifetime_affection,
+    })])
+  }
+
+  const first = await applyPetTreat({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    discordUserId: 'user-1',
+  })
+  const retried = await applyPetTreat({
+    supabaseUrl: SUPABASE_URL,
+    serviceRoleKey: SERVICE_ROLE_KEY,
+    discordUserId: 'user-1',
+  })
+
+  assert.equal(first.newlyUnlockedPersonality?.unlockKey, 'sleepy_cozy_time')
+  assert.equal(retried.newlyUnlockedPersonality?.unlockKey, 'sleepy_cozy_time')
+  assert.equal(unlockInserts.length, 2)
+  assert.deepEqual(unlockInserts[0], unlockInserts[1])
 })
 
 // --- Treat / Lifetime Affection ---

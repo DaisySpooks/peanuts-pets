@@ -5,6 +5,7 @@ import HabitatScreen from './components/HabitatScreen.jsx'
 import PetLoadingScreen from './components/PetLoadingScreen.jsx'
 import AdminScreen from './components/AdminScreen.jsx'
 import FirstAdoptionCelebration from './components/FirstAdoptionCelebration.jsx'
+import PersonalityUnlockCelebration from './components/PersonalityUnlockCelebration.jsx'
 import { MobileFixedAuthMenu } from './components/MobileAuthMenu.jsx'
 import { useAuthStatus } from './auth/useAuthStatus.js'
 import { logout } from './auth/discordAuth.js'
@@ -12,6 +13,8 @@ import { getMyPet, performPetAction, performPetting, performTreat } from './petA
 import { PET_OPTIONS } from './petOptions.js'
 import { defaultStats } from './mockData.js'
 import { buildPetActions } from './petActions.js'
+import { dismissPersonalityUnlockCelebration, getPersonalityUnlockCelebration } from './personalityUnlockCelebration.js'
+import { advancePersonalityUnlockQueue, buildPersonalityUnlockQueue } from './personalityUnlockQueue.js'
 import { isAudioEnabled, setupAudioLifecycle, toggleAudio } from './lib/audio.js'
 
 // Fixed top-right desktop controls shown across every authenticated screen
@@ -79,6 +82,27 @@ function buildHabitatStats(pet) {
   })
 }
 
+function mergeEarnedPersonalityUnlockKeys(currentPet, nextPet) {
+  if (!nextPet) return nextPet
+
+  const mergedKeys = new Set(
+    Array.isArray(currentPet?.earnedPersonalityUnlockKeys) ? currentPet.earnedPersonalityUnlockKeys : [],
+  )
+
+  for (const unlockKey of Array.isArray(nextPet.earnedPersonalityUnlockKeys) ? nextPet.earnedPersonalityUnlockKeys : []) {
+    mergedKeys.add(unlockKey)
+  }
+
+  if (typeof nextPet?.newlyUnlockedPersonality?.unlockKey === 'string') {
+    mergedKeys.add(nextPet.newlyUnlockedPersonality.unlockKey)
+  }
+
+  return {
+    ...nextPet,
+    earnedPersonalityUnlockKeys: [...mergedKeys],
+  }
+}
+
 export default function App() {
   const { isCheckingAccess, accessGranted, access, session } = useAuthStatus()
   const [viewingAccessScreen, setViewingAccessScreen] = useState(false)
@@ -88,6 +112,9 @@ export default function App() {
   const [petLoadError, setPetLoadError] = useState(null)
   const [petReloadKey, setPetReloadKey] = useState(0)
   const [pendingFirstAdoptionPet, setPendingFirstAdoptionPet] = useState(null)
+  const [personalityUnlockCelebration, setPersonalityUnlockCelebration] = useState(null)
+  const [personalityUnlockQueue, setPersonalityUnlockQueue] = useState([])
+  const [personalityPreviewRuntimeAnimation, setPersonalityPreviewRuntimeAnimation] = useState(null)
 
   const hasAccess = accessGranted && !isCheckingAccess && !viewingAccessScreen
   const hasAdminAccess = access?.adminAccessGranted === true
@@ -102,7 +129,11 @@ export default function App() {
     getMyPet()
       .then((result) => {
         if (!cancelled) {
-          setPet(result)
+          const loadedPet = mergeEarnedPersonalityUnlockKeys(null, result)
+          setPet(loadedPet)
+          const queue = buildPersonalityUnlockQueue(loadedPet, result.newlyGrantedPersonalities)
+          setPersonalityUnlockCelebration(queue[0] ?? null)
+          setPersonalityUnlockQueue(queue.slice(1))
           setPetLoadError(null)
         }
       })
@@ -154,6 +185,24 @@ export default function App() {
           setPetLoadError(null)
         }}
         onBack={() => setViewingAdminScreen(false)}
+        onPreviewCelebration={(preview) => {
+          setViewingAdminScreen(false)
+          setPersonalityPreviewRuntimeAnimation(null)
+          setPersonalityUnlockQueue([])
+          setPersonalityUnlockCelebration(preview)
+        }}
+        onPreviewRuntime={({ token }) => {
+          setViewingAdminScreen(false)
+          setPersonalityUnlockCelebration(null)
+          setPersonalityUnlockQueue([])
+          setPersonalityPreviewRuntimeAnimation(token || null)
+        }}
+        onPreviewQueue={(queue) => {
+          setViewingAdminScreen(false)
+          setPersonalityPreviewRuntimeAnimation(null)
+          setPersonalityUnlockCelebration(queue[0] ?? null)
+          setPersonalityUnlockQueue(queue.slice(1))
+        }}
       />
     )
   }
@@ -180,7 +229,7 @@ export default function App() {
         <CreatePetScreen
           onCreate={(savedPet) => {
             setPendingFirstAdoptionPet(savedPet)
-            setPet(savedPet)
+            setPet(mergeEarnedPersonalityUnlockKeys(null, savedPet))
           }}
           onViewAccessScreen={() => setViewingAccessScreen(true)}
         />
@@ -198,9 +247,13 @@ export default function App() {
         species: speciesLabel,
         temperament: pet.temperament ?? null,
         lastPettedAt: pet.lastPettedAt ?? null,
+        earnedPersonalityUnlockKeys: pet.earnedPersonalityUnlockKeys ?? [],
       }}
       petType={pet.petType}
       colour={pet.colour ?? null}
+      personalityUnlockCelebrationActive={Boolean(personalityUnlockCelebration)}
+      runtimePreviewAnimation={personalityPreviewRuntimeAnimation}
+      onRuntimePreviewComplete={() => setPersonalityPreviewRuntimeAnimation(null)}
       stats={habitatStats}
       actions={habitatActions}
       mobileIdentityAuthMenu={{
@@ -209,16 +262,20 @@ export default function App() {
       }}
       onActionPersist={async (action) => {
         const updatedPet = await performPetAction(action)
-        setPet(updatedPet)
+        setPet((currentPet) => mergeEarnedPersonalityUnlockKeys(currentPet, updatedPet))
       }}
       onPetPersist={async () => {
         const updatedPet = await performPetting()
-        setPet(updatedPet)
+        setPet((currentPet) => mergeEarnedPersonalityUnlockKeys(currentPet, updatedPet))
+        const celebration = getPersonalityUnlockCelebration(updatedPet)
+        if (celebration) setPersonalityUnlockCelebration(celebration)
         return updatedPet
       }}
       onTreatPersist={async () => {
         const updatedPet = await performTreat()
-        setPet(updatedPet)
+        setPet((currentPet) => mergeEarnedPersonalityUnlockKeys(currentPet, updatedPet))
+        const celebration = getPersonalityUnlockCelebration(updatedPet)
+        if (celebration) setPersonalityUnlockCelebration(celebration)
         return updatedPet
       }}
     />
@@ -240,6 +297,17 @@ export default function App() {
     <>
       <DesktopAuthControls hasAdminAccess={hasAdminAccess} onAdminClick={() => setViewingAdminScreen(true)} />
       {habitatScreen}
+      {personalityUnlockCelebration ? (
+        <PersonalityUnlockCelebration
+          pet={personalityUnlockCelebration.pet}
+          unlock={personalityUnlockCelebration.unlock}
+          onContinue={() => {
+            const nextQueue = advancePersonalityUnlockQueue([personalityUnlockCelebration, ...personalityUnlockQueue])
+            setPersonalityUnlockCelebration(nextQueue[0] ?? dismissPersonalityUnlockCelebration())
+            setPersonalityUnlockQueue(nextQueue.slice(1))
+          }}
+        />
+      ) : null}
     </>
   )
 }

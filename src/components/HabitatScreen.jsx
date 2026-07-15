@@ -9,6 +9,9 @@ import { useIdlePetThoughts } from './useIdlePetThoughts.js'
 import { useDailyGreeting } from './useDailyGreeting.js'
 import TreatConfirmDialog from './TreatConfirmDialog.jsx'
 import { getRandomTreatReaction } from '../petTreatReactions.js'
+import { selectReturnGreetingAnimation } from './personalityGreetingSelection.js'
+import { selectActionReactionAnimation } from './personalityActionReactionSelection.js'
+import { selectReturnAttachmentAnimation } from './personalityAttachmentSelection.js'
 
 // Pellet sinks toward the mouth over this long (matches the pellet-drop
 // animation duration in tailwind.config.js); mouth-eating only kicks in
@@ -29,6 +32,8 @@ const CLEANING_DURATION_MS = 1500
 const PLAYING_DURATION_MS = 1400
 const HAPPY_EXPRESSION_DURATION_MS = 700
 const FEED_HAPPY_EXPRESSION_DURATION_MS = (EATING_END_MS - EATING_START_MS) + HAPPY_EXPRESSION_DURATION_MS
+const PETTING_REACTION_DURATION_MS = 700
+const PERSONALITY_ACTION_REACTION_DURATION_MS = 2800
 
 // Treat reaction bubble: shorter than the daily-greeting bubble (which is
 // meant to linger) since this is a direct response to a click, not
@@ -81,6 +86,9 @@ export default function HabitatScreen({
   pet,
   petType,
   colour,
+  personalityUnlockCelebrationActive = false,
+  runtimePreviewAnimation = null,
+  onRuntimePreviewComplete,
   stats,
   actions,
   onActionPersist,
@@ -103,8 +111,34 @@ export default function HabitatScreen({
   const [treatError, setTreatError] = useState(null)
   const [treatReactionText, setTreatReactionText] = useState(null)
   const [treatReactionVisible, setTreatReactionVisible] = useState(false)
+  const [actionReactionAnimation, setActionReactionAnimation] = useState(null)
   const { expression, showExpression } = useTemporaryExpression()
   const { text: greetingText, visible: greetingVisible, active: greetingActive } = useDailyGreeting(pet.temperament)
+  const greetingAnimation = selectReturnGreetingAnimation({
+    species: petType,
+    temperament: pet.temperament,
+    earnedPersonalityUnlockKeys: pet.earnedPersonalityUnlockKeys ?? [],
+  })
+  const [attachmentAnimation, setAttachmentAnimation] = useState(null)
+  const greetingWasActiveRef = useRef(false)
+
+  useEffect(() => {
+    if (greetingActive) {
+      greetingWasActiveRef.current = true
+      setAttachmentAnimation(null)
+      return
+    }
+
+    if (!greetingWasActiveRef.current) return
+    greetingWasActiveRef.current = false
+    setAttachmentAnimation(selectReturnAttachmentAnimation({
+      species: petType,
+      temperament: pet.temperament,
+      earnedPersonalityUnlockKeys: pet.earnedPersonalityUnlockKeys ?? [],
+      greetingAnimation,
+      random: Math.random,
+    }))
+  }, [greetingActive, greetingAnimation, pet.temperament, pet.earnedPersonalityUnlockKeys, petType])
   const { text: idleThoughtText, visible: idleThoughtVisible } = useIdlePetThoughts(pet.temperament, {
     enabled: !greetingActive,
   })
@@ -121,6 +155,8 @@ export default function HabitatScreen({
   const eatingSoundTimeoutRef = useRef(null)
   const cleaningTimeoutRef = useRef(null)
   const playingTimeoutRef = useRef(null)
+  const actionReactionTimeoutRef = useRef(null)
+  const pendingActionReactionRef = useRef({ feed: null, clean: null, play: null })
   const treatReactionHideTimeoutRef = useRef(null)
   const treatReactionEndTimeoutRef = useRef(null)
   const statusText = getPetStatusText({ isFeeding, isCleaning, isPlaying, stats: statsForMood })
@@ -133,9 +169,33 @@ export default function HabitatScreen({
     clearTimeout(eatingSoundTimeoutRef.current)
     clearTimeout(cleaningTimeoutRef.current)
     clearTimeout(playingTimeoutRef.current)
+    clearTimeout(actionReactionTimeoutRef.current)
     clearTimeout(treatReactionHideTimeoutRef.current)
     clearTimeout(treatReactionEndTimeoutRef.current)
   }, [])
+
+  const clearActionReaction = () => {
+    clearTimeout(actionReactionTimeoutRef.current)
+    setActionReactionAnimation(null)
+  }
+
+  const showActionReaction = (animation) => {
+    clearTimeout(actionReactionTimeoutRef.current)
+    setActionReactionAnimation(animation)
+
+    if (!animation) return
+
+    actionReactionTimeoutRef.current = setTimeout(() => {
+      setActionReactionAnimation(null)
+    }, PERSONALITY_ACTION_REACTION_DURATION_MS)
+  }
+
+  const getEligibleActionReaction = (action) => selectActionReactionAnimation({
+    species: petType,
+    temperament: pet.temperament,
+    action,
+    earnedPersonalityUnlockKeys: pet.earnedPersonalityUnlockKeys ?? [],
+  })
 
   const showTreatReaction = (text) => {
     clearTimeout(treatReactionHideTimeoutRef.current)
@@ -164,13 +224,17 @@ export default function HabitatScreen({
   }
 
   const handleConfirmTreat = async () => {
+    if (runtimePreviewAnimation) return
     if (isTreatSubmitting) return
     setIsTreatSubmitting(true)
     setTreatError(null)
     try {
+      setAttachmentAnimation(null)
       await onTreatPersist?.()
       setTreatDialogOpen(false)
       showExpression(PET_EXPRESSIONS.happy, HAPPY_EXPRESSION_DURATION_MS)
+      clearActionReaction()
+      showActionReaction(getEligibleActionReaction('treat'))
       showTreatReaction(getRandomTreatReaction())
     } catch (error) {
       setTreatError(getTreatErrorMessage(error))
@@ -186,13 +250,19 @@ export default function HabitatScreen({
   }
 
   const handleAction = (actionKey) => {
-    if (pendingAction) return
+    if (pendingAction || runtimePreviewAnimation) return
+
+    setAttachmentAnimation(null)
 
     if (actionKey === 'treat') {
+      clearActionReaction()
       setTreatError(null)
       setTreatDialogOpen(true)
       return
     }
+
+    clearActionReaction()
+    pendingActionReactionRef.current[actionKey] = null
 
     if (actionKey === 'feed') {
       // Fired before any of the state/timer bookkeeping below so there's
@@ -209,7 +279,11 @@ export default function HabitatScreen({
       setIsEating(false)
       setFeedTrigger((n) => n + 1)
 
-      pelletTimeoutRef.current = setTimeout(() => setIsFeeding(false), PELLET_DURATION_MS)
+      pelletTimeoutRef.current = setTimeout(() => {
+        setIsFeeding(false)
+        showActionReaction(pendingActionReactionRef.current.feed)
+        pendingActionReactionRef.current.feed = null
+      }, PELLET_DURATION_MS)
       eatingStartTimeoutRef.current = setTimeout(() => {
         setIsEating(true)
         showExpression(PET_EXPRESSIONS.happy, FEED_HAPPY_EXPRESSION_DURATION_MS)
@@ -228,22 +302,30 @@ export default function HabitatScreen({
       cleaningTimeoutRef.current = setTimeout(() => {
         setIsCleaning(false)
         showExpression(PET_EXPRESSIONS.happy, HAPPY_EXPRESSION_DURATION_MS)
+        showActionReaction(pendingActionReactionRef.current.clean)
+        pendingActionReactionRef.current.clean = null
       }, CLEANING_DURATION_MS)
       playTankClean()
     } else if (actionKey === 'play') {
       clearTimeout(playingTimeoutRef.current)
       setIsPlaying(true)
       showExpression(PET_EXPRESSIONS.happy, PLAYING_DURATION_MS)
-      playingTimeoutRef.current = setTimeout(() => setIsPlaying(false), PLAYING_DURATION_MS)
+      playingTimeoutRef.current = setTimeout(() => {
+        setIsPlaying(false)
+        showActionReaction(pendingActionReactionRef.current.play)
+        pendingActionReactionRef.current.play = null
+      }, PLAYING_DURATION_MS)
       playPlay()
     }
 
     setPendingAction(actionKey)
     Promise.resolve(onActionPersist?.(actionKey))
       .then(() => {
+        pendingActionReactionRef.current[actionKey] = getEligibleActionReaction(actionKey)
         setActionError(null)
       })
       .catch(() => {
+        pendingActionReactionRef.current[actionKey] = null
         setActionError('Could not save that action. Your current stats are unchanged.')
       })
       .finally(() => {
@@ -252,8 +334,20 @@ export default function HabitatScreen({
   }
 
   const handlePetPersist = () => {
+    if (runtimePreviewAnimation) return Promise.resolve(null)
+    setAttachmentAnimation(null)
+    clearActionReaction()
     showExpression(PET_EXPRESSIONS.happy, HAPPY_EXPRESSION_DURATION_MS)
-    return onPetPersist?.()
+    return Promise.resolve(onPetPersist?.()).then((result) => {
+      const reaction = getEligibleActionReaction('pet')
+      if (reaction) {
+        clearTimeout(actionReactionTimeoutRef.current)
+        actionReactionTimeoutRef.current = setTimeout(() => {
+          showActionReaction(reaction)
+        }, PETTING_REACTION_DURATION_MS)
+      }
+      return result
+    })
   }
 
   return (
@@ -325,6 +419,7 @@ export default function HabitatScreen({
                 colour={colour}
                 name={pet.name}
                 lastPettedAt={pet.lastPettedAt ?? null}
+                earnedPersonalityUnlockKeys={pet.earnedPersonalityUnlockKeys ?? []}
                 expression={expression}
                 mood="happy"
                 stats={statsForMood}
@@ -336,6 +431,15 @@ export default function HabitatScreen({
                 onPetPersist={handlePetPersist}
                 thoughtText={thoughtText}
                 thoughtVisible={thoughtVisible}
+                greetingActive={greetingActive}
+                greetingAnimation={greetingAnimation}
+                actionReactionAnimation={actionReactionAnimation}
+                attachmentAnimation={runtimePreviewAnimation ?? attachmentAnimation}
+                onAttachmentAnimationComplete={() => {
+                  if (runtimePreviewAnimation) onRuntimePreviewComplete?.()
+                  else setAttachmentAnimation(null)
+                }}
+                personalityUnlockCelebrationActive={personalityUnlockCelebrationActive}
               />
             </div>
           </div>
