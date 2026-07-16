@@ -162,7 +162,7 @@ const SHOW_OFF_FIN_DURATION_MS = 1400
 // PersonalityUnlockCelebration.jsx via the celebrationAnimation prop.
 const YOURE_HERE_BODY_DURATION_MS = 3200
 const YOURE_HERE_TAIL_DURATION_MS = 850
-const YOURE_HERE_FIN_DURATION_MS = 1200
+const YOURE_HERE_FIN_DURATION_MS = 2600
 const YOURE_HERE_TAIL_DELAY_MS = 950
 // Curious Level 12 "Follow Me" personality-unlock celebration — acknowledges
 // the player, glides to a point of interest, angles back toward the player,
@@ -567,14 +567,16 @@ const BETTA_KEYFRAMES = `
 }
 @keyframes betta-youre-here-body {
   0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  14% { transform: translate(-1.2%, 0) rotate(0deg) scale(1.003); }
-  30% { transform: translate(-4.5%, 0) rotate(0deg) scale(1.012); }
-  44% { transform: translate(-8%, 0) rotate(0deg) scale(1.025); }
-  62% { transform: translate(-8%, 0) rotate(0deg) scale(1.025); }
-  68% { transform: translate(-7.5%, -0.3%) rotate(-1deg) scale(1.025); }
-  74% { transform: translate(-8%, 0.3%) rotate(1deg) scale(1.025); }
-  80% { transform: translate(-7.5%, 0) rotate(0deg) scale(1.025); }
-  90% { transform: translate(-5%, 0) rotate(0deg) scale(1.014); }
+  8% { transform: translate(0.7%, 0) rotate(0deg) scale(0.998); }
+  16% { transform: translate(0.4%, 0) rotate(0deg) scale(1); }
+  28% { transform: translate(-2.2%, 0) rotate(-1deg) scale(1.006); }
+  40% { transform: translate(-6.6%, 0) rotate(-2deg) scale(1.018); }
+  48% { transform: translate(-8.4%, 0) rotate(-4deg) scale(1.026); }
+  54% { transform: translate(-7.8%, 0) rotate(-6.5deg) scale(1.024); }
+  62% { transform: translate(-7.8%, 0) rotate(-7deg) scale(1.024); }
+  68% { transform: translate(-7.6%, 0) rotate(-6.5deg) scale(1.023); }
+  82% { transform: translate(-5.5%, 0) rotate(-4deg) scale(1.014); }
+  94% { transform: translate(-2%, 0) rotate(-1.5deg) scale(1.004); }
   100% { transform: translate(0, 0) rotate(0deg) scale(1); }
 }
 @keyframes betta-youre-here-tail-flourish {
@@ -583,10 +585,10 @@ const BETTA_KEYFRAMES = `
 }
 @keyframes betta-youre-here-fin-open {
   0%, 100% { transform: scale(1) rotate(0deg); }
-  30% { transform: scale(1.03) rotate(-0.5deg); }
-  48% { transform: scale(1.06) rotate(-1deg); }
-  78% { transform: scale(1.05) rotate(-0.6deg); }
-  92% { transform: scale(1.02) rotate(0deg); }
+  45% { transform: scale(1.03) rotate(-0.5deg); }
+  60% { transform: scale(1.06) rotate(-1deg); }
+  72% { transform: scale(1.06) rotate(-1deg); }
+  88% { transform: scale(1.03) rotate(-0.5deg); }
 }
 @keyframes betta-follow-me-body {
   0% { transform: translate(0, 0) rotate(0deg) scale(1); }
@@ -1546,7 +1548,7 @@ export default function BettaRig({
     : specialAnimation === 'show-off'
     ? { animation: `betta-show-off-body ${SHOW_OFF_BODY_DURATION_MS}ms ease-in-out 1` }
     : specialAnimation === 'youre-here'
-    ? { animation: `betta-youre-here-body ${YOURE_HERE_BODY_DURATION_MS}ms ease-in-out 1` }
+    ? { animation: `betta-youre-here-body ${YOURE_HERE_BODY_DURATION_MS}ms cubic-bezier(0.18, 0.82, 0.28, 1) 1` }
     : specialAnimation === 'follow-me'
     ? { animation: `betta-follow-me-body ${FOLLOW_ME_BODY_DURATION_MS}ms ease-in-out 1` }
     : specialAnimation === 'happy-together'
