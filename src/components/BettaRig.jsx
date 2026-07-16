@@ -132,7 +132,7 @@ const HUNGRY_WIGGLE_FIN_DURATION_MS = 900
 // celebrationAnimation prop.
 const PLAYTIME_WELCOME_BODY_DURATION_MS = 1900
 const PLAYTIME_WELCOME_TAIL_DURATION_MS = 1200
-const PLAYTIME_WELCOME_FIN_DURATION_MS = 900
+const PLAYTIME_WELCOME_FIN_DURATION_MS = 2100
 // Playful Level 5 "Encore!" personality-unlock celebration (see
 // personalityUnlockAnimations.js) — two separated tail-led side-to-side
 // beats with a visible pause between them; the body follows without a
@@ -504,19 +504,24 @@ const BETTA_KEYFRAMES = `
   70% { transform: scale(1.015) rotate(1deg); }
 }
 @keyframes betta-playtime-welcome-body {
-  0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  12% { transform: translate(-0.8%, 0) rotate(-1deg) scale(1.002); }
-  30% { transform: translate(-3.8%, -0.2%) rotate(-1.5deg) scale(1.01); }
-  48% { transform: translate(-6%, -0.3%) rotate(-1deg) scale(1.018); }
-  64% { transform: translate(-6%, -0.3%) rotate(-1deg) scale(1.018); }
-  80% { transform: translate(-4.5%, -0.2%) rotate(-0.5deg) scale(1.01); }
-  92% { transform: translate(-1.8%, 0) rotate(0deg) scale(1.003); }
-  100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  0% { transform: translate(0, 0) rotate(0deg); }
+  8% { transform: translate(0.7%, 0) rotate(2deg); }
+  16% { transform: translate(0.7%, 0) rotate(2deg); }
+  27% { transform: translate(-1%, 0) rotate(0deg); }
+  42% { transform: translate(-4.2%, 0) rotate(-2deg); }
+  54% { transform: translate(-6%, 0) rotate(-4deg); }
+  58% { transform: translate(-6%, 0) rotate(-6deg); }
+  72% { transform: translate(-6%, 0) rotate(-6.5deg); }
+  86% { transform: translate(-4%, 0) rotate(-4deg); }
+  95% { transform: translate(-1.6%, 0) rotate(-1.5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
 }
 @keyframes betta-playtime-welcome-fin-flutter {
   0%, 100% { transform: scale(1) rotate(0deg); }
-  42% { transform: scale(1.12) rotate(-2deg); }
-  68% { transform: scale(1.04) rotate(0deg); }
+  46% { transform: scale(1.03) rotate(-0.5deg); }
+  60% { transform: scale(1.07) rotate(-1deg); }
+  76% { transform: scale(1.07) rotate(-1deg); }
+  92% { transform: scale(1.02) rotate(0deg); }
 }
 @keyframes betta-encore-body {
   0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
