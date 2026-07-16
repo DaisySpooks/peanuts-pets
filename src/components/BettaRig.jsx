@@ -94,7 +94,6 @@ const PETTING_INVITE_DURATION_MS = 1100
 // PersonalityUnlockCelebration.jsx via the celebrationAnimation prop.
 const HAPPY_BOUNCE_BODY_DURATION_MS = 1900
 const HAPPY_BOUNCE_FIN_DURATION_MS = 900
-const HAPPY_BOUNCE_TAIL_DURATION_MS = 1100
 // Curious Level 1 "Curious Peek" personality-unlock celebration (see
 // personalityUnlockAnimations.js) — a subtle forward lean, fins opening
 // slightly, a small tilt toward the glass, then settle. One-shot, plays
@@ -131,7 +130,6 @@ const HUNGRY_WIGGLE_FIN_DURATION_MS = 900
 // plays only inside PersonalityUnlockCelebration.jsx via the
 // celebrationAnimation prop.
 const PLAYTIME_WELCOME_BODY_DURATION_MS = 1900
-const PLAYTIME_WELCOME_TAIL_DURATION_MS = 1200
 const PLAYTIME_WELCOME_FIN_DURATION_MS = 2100
 // Playful Level 5 "Encore!" personality-unlock celebration (see
 // personalityUnlockAnimations.js) — two separated tail-led side-to-side
@@ -142,8 +140,6 @@ const PLAYTIME_WELCOME_FIN_DURATION_MS = 2100
 // PersonalityUnlockCelebration.jsx via the celebrationAnimation prop.
 const ENCORE_BODY_DURATION_MS = 2400
 const ENCORE_TAIL_DURATION_MS = 1500
-const ENCORE_FIN_DURATION_MS = 850
-const ENCORE_FIN_DELAY_MS = 350
 // Playful Level 8 "Show Off" personality-unlock celebration (see
 // personalityUnlockAnimations.js) — fins open proudly wider than normal,
 // the body leans smoothly into a poised turn, one tail flourish follows,
@@ -433,13 +429,12 @@ const BETTA_KEYFRAMES = `
   58% { transform: translate(0, 0.15%) rotate(2.8deg) scale(1.018); }
 }
 @keyframes betta-happy-bounce-body {
-  0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  14% { transform: translate(0, 2.2%) rotate(0deg) scale(0.99); }
-  30% { transform: translate(-0.8%, -10.5%) rotate(-3deg) scale(1.015); }
-  42% { transform: translate(-1%, -12%) rotate(-3.5deg) scale(1.02); }
-  56% { transform: translate(0, -2.5%) rotate(0deg) scale(1.006); }
-  68% { transform: translate(0, 0.8%) rotate(0deg) scale(0.998); }
-  100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  14% { transform: translate(0, 2.2%) rotate(0deg); }
+  32% { transform: translate(-0.8%, -10.5%) rotate(-3deg); }
+  46% { transform: translate(-1%, -12%) rotate(-3.5deg); }
+  64% { transform: translate(0, -1.5%) rotate(-0.5deg); }
+  76% { transform: translate(0, 0) rotate(0deg); }
 }
 @keyframes betta-happy-bounce-fin-spread {
   0%, 100% { transform: scale(1) rotate(0deg); }
@@ -507,68 +502,48 @@ const BETTA_KEYFRAMES = `
   0% { transform: translate(0, 0) rotate(0deg); }
   8% { transform: translate(0.7%, 0) rotate(2deg); }
   16% { transform: translate(0.7%, 0) rotate(2deg); }
-  27% { transform: translate(-1%, 0) rotate(0deg); }
-  42% { transform: translate(-4.2%, 0) rotate(-2deg); }
-  54% { transform: translate(-6%, 0) rotate(-4deg); }
-  58% { transform: translate(-6%, 0) rotate(-6deg); }
-  72% { transform: translate(-6%, 0) rotate(-6.5deg); }
+  30% { transform: translate(-1%, 0) rotate(0deg); }
+  48% { transform: translate(-4.8%, 0) rotate(-2deg); }
+  58%, 72% { transform: translate(-6%, 0) rotate(-6.5deg); }
   86% { transform: translate(-4%, 0) rotate(-4deg); }
   95% { transform: translate(-1.6%, 0) rotate(-1.5deg); }
   100% { transform: translate(0, 0) rotate(0deg); }
 }
 @keyframes betta-playtime-welcome-fin-flutter {
   0%, 100% { transform: scale(1) rotate(0deg); }
-  46% { transform: scale(1.03) rotate(-0.5deg); }
-  60% { transform: scale(1.07) rotate(-1deg); }
-  76% { transform: scale(1.07) rotate(-1deg); }
+  58%, 76% { transform: scale(1.07) rotate(-1deg); }
   92% { transform: scale(1.02) rotate(0deg); }
 }
 @keyframes betta-encore-body {
-  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  10% { transform: translate(1%, 0) rotate(1deg) scale(1.002); }
-  24% { transform: translate(5.5%, 0) rotate(4deg) scale(1.012); }
-  38% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  46%, 52% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  66% { transform: translate(-5.5%, 0) rotate(-4deg) scale(1.012); }
-  80% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  88% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  18% { transform: translate(5.5%, 0) rotate(4deg); }
+  34%, 44% { transform: translate(0, 0) rotate(0deg); }
+  62% { transform: translate(-5.5%, 0) rotate(-4deg); }
+  78%, 88% { transform: translate(0, 0) rotate(0deg); }
 }
 @keyframes betta-encore-tail-flick {
   0%, 100% { transform: rotate(0deg); }
-  10% { transform: rotate(8deg); }
-  24% { transform: rotate(22deg); }
-  38%, 52% { transform: rotate(0deg); }
-  66% { transform: rotate(-22deg); }
-  80%, 88% { transform: rotate(0deg); }
-}
-@keyframes betta-encore-fin-flutter {
-  0%, 100% { transform: scale(1) rotate(0deg); }
-  30% { transform: scale(1.035) rotate(-1deg); }
-  70% { transform: scale(1.015) rotate(0deg); }
+  18% { transform: rotate(22deg); }
+  34%, 44% { transform: rotate(0deg); }
+  62% { transform: rotate(-22deg); }
+  78%, 88% { transform: rotate(0deg); }
 }
 @keyframes betta-show-off-body {
-  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
-  12% { transform: translate(-0.6%, -0.2%) rotate(-2deg) scale(1.004); }
-  28% { transform: translate(-2%, -0.7%) rotate(-8deg) scale(1.018); }
-  44% { transform: translate(-2.5%, -1%) rotate(-11deg) scale(1.03); }
-  62% { transform: translate(-2.5%, -1%) rotate(-11deg) scale(1.03); }
-  76% { transform: translate(-1.8%, -0.5%) rotate(-7deg) scale(1.018); }
-  90% { transform: translate(-0.6%, -0.1%) rotate(-2deg) scale(1.004); }
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  18% { transform: translate(-1.2%, -0.4%) rotate(-5deg); }
+  42%, 62% { transform: translate(-2.5%, -1%) rotate(-11deg); }
+  82% { transform: translate(-1.2%, -0.3%) rotate(-5deg); }
 }
 @keyframes betta-show-off-tail-flourish {
   0%, 100% { transform: rotate(0deg); }
-  16% { transform: rotate(5deg); }
-  32% { transform: rotate(24deg); }
-  48% { transform: rotate(5deg); }
-  62% { transform: rotate(-15deg); }
-  76% { transform: rotate(5deg); }
-  90% { transform: rotate(1deg); }
+  28% { transform: rotate(24deg); }
+  48% { transform: rotate(-15deg); }
+  68% { transform: rotate(5deg); }
 }
 @keyframes betta-show-off-fin-open {
   0%, 100% { transform: scale(1) rotate(0deg); }
-  28% { transform: scale(1.18) rotate(-4deg); }
-  52% { transform: scale(1.22) rotate(-3deg); }
-  76% { transform: scale(1.08) rotate(-0.5deg); }
+  42%, 62% { transform: scale(1.22) rotate(-3deg); }
+  82% { transform: scale(1.08) rotate(-0.5deg); }
 }
 @keyframes betta-youre-here-body {
   0% { transform: translate(0, 0) rotate(0deg); }
